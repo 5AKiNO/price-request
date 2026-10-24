@@ -21,6 +21,11 @@ class ProductRepository(
 
     val allProducts: Flow<List<Product>> = binaryStore.productsFlow
     val allRequests: Flow<List<PriceRequest>> = binaryStore.requestsFlow
+    val workplaceName: Flow<String> = binaryStore.workplaceNameFlow
+
+    suspend fun saveWorkplaceName(name: String) {
+        binaryStore.saveWorkplaceName(name)
+    }
 
     suspend fun saveProduct(product: Product) {
         binaryStore.saveProduct(product)

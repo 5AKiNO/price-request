@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,11 +21,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -35,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,9 +54,9 @@ import com.example.ui.catalog.CatalogViewModel
 import com.example.ui.request.RequestHistoryScreen
 import com.example.ui.request.RequestScreen
 import com.example.ui.request.RequestViewModel
-import com.example.ui.theme.AutoservicioClaudiaTheme
-import com.example.ui.theme.ClaudiaBlueContainer
-import com.example.ui.theme.ClaudiaBluePrimary
+import com.example.ui.theme.AppPricingTheme
+import com.example.ui.theme.BrandBlueContainer
+import com.example.ui.theme.BrandBluePrimary
 import com.example.ui.theme.getContrastingTextColor
 
 enum class AppScreen {
@@ -71,7 +75,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            AutoservicioClaudiaTheme {
+            AppPricingTheme {
                 MainAppRoot(
                     catalogViewModel = catalogViewModel,
                     requestViewModel = requestViewModel
@@ -88,18 +92,19 @@ fun MainAppRoot(
     requestViewModel: RequestViewModel
 ) {
     var currentScreen by remember { mutableStateOf(AppScreen.CATALOGO) }
+    val catalogState by catalogViewModel.uiState.collectAsState()
 
     // Handle back button to return to CATALOGO if on secondary screen
     BackHandler(enabled = currentScreen != AppScreen.CATALOGO) {
         currentScreen = AppScreen.CATALOGO
     }
 
-    val topBarBg = ClaudiaBluePrimary
+    val topBarBg = BrandBluePrimary
     val topBarTextColor = getContrastingTextColor(topBarBg)
 
     val navBarBg = MaterialTheme.colorScheme.surface
     val navBarTextColor = getContrastingTextColor(navBarBg)
-    val navIndicatorBg = ClaudiaBlueContainer
+    val navIndicatorBg = BrandBlueContainer
     val navSelectedIconColor = getContrastingTextColor(navIndicatorBg)
 
     val screenBg = MaterialTheme.colorScheme.background
@@ -112,7 +117,13 @@ fun MainAppRoot(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            currentScreen = AppScreen.CATALOGO
+                            catalogViewModel.openWorkplaceDialog()
+                        }
+                    ) {
                         Surface(
                             shape = androidx.compose.foundation.shape.CircleShape,
                             color = Color.White.copy(alpha = 0.2f),
@@ -130,10 +141,11 @@ fun MainAppRoot(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Autoservicio Claudia",
+                                text = catalogState.workplaceName,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = topBarTextColor
+                                color = topBarTextColor,
+                                modifier = Modifier.testTag("top_bar_workplace_name")
                             )
                             Text(
                                 text = "Catálogo y Gestor de Precios Gs.",
@@ -141,6 +153,21 @@ fun MainAppRoot(
                                 color = topBarTextColor
                             )
                         }
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            currentScreen = AppScreen.CATALOGO
+                            catalogViewModel.openWorkplaceDialog()
+                        },
+                        modifier = Modifier.testTag("top_bar_edit_workplace_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Cambiar nombre del local",
+                            tint = topBarTextColor
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

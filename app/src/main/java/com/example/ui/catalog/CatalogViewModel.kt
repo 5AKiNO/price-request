@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 
 @Immutable
 data class CatalogUiState(
+    val workplaceName: String = FastBinaryStore.DEFAULT_WORKPLACE_NAME,
     val allProducts: List<Product> = emptyList(),
     val filteredProducts: List<Product> = emptyList(),
     val recentOrQuickProducts: List<Product> = emptyList(),
@@ -29,7 +30,9 @@ data class CatalogUiState(
     val selectedProductIds: Set<String> = emptySet(),
     val isFormOpen: Boolean = false,
     val editingProduct: Product? = null,
-    val isExportDialogOpen: Boolean = false
+    val isExportDialogOpen: Boolean = false,
+    val exportTargetProducts: List<Product> = emptyList(),
+    val isWorkplaceDialogOpen: Boolean = false
 )
 
 @OptIn(FlowPreview::class)
@@ -55,16 +58,21 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private val _isExportDialogOpen = MutableStateFlow(false)
     val isExportDialogOpen: StateFlow<Boolean> = _isExportDialogOpen
 
+    private val _exportTargetProducts = MutableStateFlow<List<Product>>(emptyList())
+
+    private val _isWorkplaceDialogOpen = MutableStateFlow(false)
+
     // Debounced search query to prevent jank on low-end phones
     private val debouncedQuery = _searchQuery
         .debounce(90L)
 
     val uiState: StateFlow<CatalogUiState> = combine(
         repository.allProducts,
+        repository.workplaceName,
         debouncedQuery,
         _activeFilter,
         _selectedProductIds
-    ) { products, query, filter, selectedIds ->
+    ) { products, workplace, query, filter, selectedIds ->
 
         val normalizedQuery = MathUtils.normalizarConEnie(query.trim())
 
@@ -91,6 +99,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         val quickCards = products.take(8)
 
         CatalogUiState(
+            workplaceName = workplace,
             allProducts = products,
             filteredProducts = filtered,
             recentOrQuickProducts = quickCards,
@@ -98,13 +107,17 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
             activeFilter = filter,
             selectedProductIds = selectedIds
         )
-    }.flowOn(Dispatchers.Default) // Execute filtering off the main thread for smooth 60fps rendering
+    }.flowOn(Dispatchers.Default)
     .combine(_isFormOpen) { state, formOpen ->
         state.copy(isFormOpen = formOpen)
     }.combine(_editingProduct) { state, editingProd ->
         state.copy(editingProduct = editingProd)
     }.combine(_isExportDialogOpen) { state, exportOpen ->
         state.copy(isExportDialogOpen = exportOpen)
+    }.combine(_exportTargetProducts) { state, exportList ->
+        state.copy(exportTargetProducts = exportList)
+    }.combine(_isWorkplaceDialogOpen) { state, workplaceOpen ->
+        state.copy(isWorkplaceDialogOpen = workplaceOpen)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -135,6 +148,21 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearSelection() {
         _selectedProductIds.value = emptySet()
+    }
+
+    fun openWorkplaceDialog() {
+        _isWorkplaceDialogOpen.value = true
+    }
+
+    fun closeWorkplaceDialog() {
+        _isWorkplaceDialogOpen.value = false
+    }
+
+    fun saveWorkplaceName(newName: String) {
+        viewModelScope.launch {
+            repository.saveWorkplaceName(newName)
+            _isWorkplaceDialogOpen.value = false
+        }
     }
 
     fun openNewProductForm() {
@@ -201,6 +229,20 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun openExportDialog() {
+        val state = uiState.value
+        val selected = state.allProducts.filter { state.selectedProductIds.contains(it.id) }
+        _exportTargetProducts.value = if (selected.isNotEmpty()) selected else state.filteredProducts
+        _isExportDialogOpen.value = true
+    }
+
+    fun openExportDialogForAll() {
+        val state = uiState.value
+        _exportTargetProducts.value = if (state.filteredProducts.isNotEmpty()) state.filteredProducts else state.allProducts
+        _isExportDialogOpen.value = true
+    }
+
+    fun openSingleProductExport(product: Product) {
+        _exportTargetProducts.value = listOf(product)
         _isExportDialogOpen.value = true
     }
 
@@ -208,6 +250,9 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         _isExportDialogOpen.value = false
     }
 
+    /**
+     * Builds an emoji-free plain-text export using the custom workplace name and the consultation structure.
+     */
     fun buildWhatsAppPlainText(
         selectedProducts: List<Product>,
         includeCodigo: Boolean = true,
@@ -215,22 +260,23 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         includeVenta: Boolean = true,
         includeMargen: Boolean = true
     ): String {
+        val cleanWorkplace = uiState.value.workplaceName.trim().ifBlank { FastBinaryStore.DEFAULT_WORKPLACE_NAME }
         val sb = StringBuilder()
-        sb.append("📋 *LISTADO DE PRODUCTOS - AUTOSERVICIO CLAUDIA*\n")
-        sb.append("━━━━━━━━━━━━━━━━━━━━\n")
+        sb.append("*LISTADO DE PRODUCTOS - ${cleanWorkplace.uppercase()}*\n")
+        sb.append("----------------------------------------\n")
 
         for (prod in selectedProducts) {
-            val codText = if (includeCodigo) {
-                val c = prod.codigo ?: "Sin código"
-                "🔹 *Cód:* $c | "
-            } else {
-                "🔹 "
+            sb.append("Nombre Producto:\n")
+            sb.append("· *${prod.descripcion}*\n")
+
+            if (includeCodigo) {
+                val c = prod.codigo?.takeIf { it.isNotBlank() } ?: "Sin código"
+                sb.append("Código: $c\n")
             }
-            sb.append("$codText*${prod.descripcion}*\n")
 
             if (includeCosto) {
                 val costoStr = prod.precioCosto?.let { MathUtils.formatearGuaranies(it) } ?: "Pendiente"
-                sb.append("   • Costo: Gs. $costoStr\n")
+                sb.append("Precio de Costo Gs.: $costoStr\n")
             }
 
             if (includeVenta) {
@@ -238,12 +284,12 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 val marginStr = if (includeMargen && prod.porcentajeRealRedondeado != null) {
                     " (${prod.porcentajeRealRedondeado}%)"
                 } else ""
-                sb.append("   • Venta: Gs. $ventaStr$marginStr\n")
+                sb.append("Precio de Venta Gs.: $ventaStr$marginStr\n")
             }
+            sb.append("----------------------------------------\n")
         }
 
-        sb.append("━━━━━━━━━━━━━━━━━━━━\n")
-        sb.append("Total seleccionados: ${selectedProducts.size}")
+        sb.append("Total de productos: ${selectedProducts.size}")
         return sb.toString()
     }
 }

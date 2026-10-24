@@ -1,274 +1,213 @@
 # Sistema Móvil de Precios e Inventario
 
-Aplicación Android nativa desarrollada en **Kotlin** y **Jetpack Compose (Material Design 3)** para la administración ágil de catálogos de productos, cálculo bidireccional de márgenes de ganancia en **Guaraníes (`Gs.`)** y generación de fichas infográficas en formato **`16:9`** listas para compartir directamente por **WhatsApp**.
+Aplicación nativa Android desarrollada en **Kotlin** y **Jetpack Compose (Material Design 3)** para la administración ágil de catálogos de productos, cálculo automatizado de márgenes comerciales, personalización del nombre del local o sitio de trabajo y generación de fichas y reportes exportables tanto en **Texto Plano (TXT)** como en **Imagen Render Monocroma** (blanco y negro) optimizados para compartir por WhatsApp.
 
-Diseñada desde cero bajo una arquitectura de **ultra-bajo consumo de memoria RAM y CPU**, permite operar con fluidez instantánea incluso en dispositivos móviles de gama de entrada (2 GB – 3 GB de RAM) y totalmente fuera de línea (offline-first).
+Diseñada con una arquitectura de baja latencia y consumo reducido de memoria RAM, permite operar con fluidez (0 ms de bloqueo en interfaz) incluso en dispositivos móviles de gama de entrada (1 GB a 3 GB de RAM) y totalmente fuera de línea (offline-first).
 
 ---
 
 ## Tabla de Contenidos
 
-1. [Características Principales](#1-características-principales)
-2. [Arquitectura General del Sistema](#2-arquitectura-general-del-sistema)
-3. [Desglose Detallado de Todos los Componentes](#3-desglose-detallado-de-todos-los-componentes)
-   - [3.1 Capa de Navegación y Tema de Alto Contraste Adaptativo](#31-capa-de-navegación-y-tema-de-alto-contraste-adaptativo)
-   - [3.2 Módulo 1: Catálogo de Productos y Gestor de Precios](#32-módulo-1-catálogo-de-productos-y-gestor-de-precios)
-   - [3.3 Módulo 2: Generador de Solicitudes y Fichas Visuales 16:9](#33-módulo-2-generador-de-solicitudes-y-fichas-visuales-169)
-   - [3.4 Módulo 3: Historial de Solicitudes](#34-módulo-3-historial-de-solicitudes)
-   - [3.5 Capa de Datos y Almacenamiento Binario Ultraligero](#35-capa-de-datos-y-almacenamiento-binario-ultraligero)
-   - [3.6 Motores Transversales de Cálculo e Imagen](#36-motores-transversales-de-cálculo-e-imagen)
-4. [Reglas Matemáticas y de Negocio](#4-reglas-matemáticas-y-de-negocio)
-5. [Optimizaciones para Dispositivos de Gama Baja](#5-optimizaciones-para-dispositivos-de-gama-baja)
-6. [Requisitos, Instalación y Compilación](#6-requisitos-instalación-y-compilación)
+1. [Características Principales](#características-principales)
+2. [Arquitectura del Sistema y Almacenamiento Binario](#arquitectura-del-sistema-y-almacenamiento-binario)
+3. [Personalización del Sitio o Local de Trabajo](#personalización-del-sitio-o-local-de-trabajo)
+4. [Reglas Matemáticas y Financieras](#reglas-matemáticas-y-financieras)
+5. [Flujos de Solicitud de Cambio de Precios (5 Tipos)](#flujos-de-solicitud-de-cambio-de-precios-5-tipos)
+6. [Exportación en Texto Plano (TXT) e Imagen Render Monocroma](#exportación-en-texto-plano-txt-e-imagen-render-monocroma)
+7. [Desglose Detallado de Componentes](#desglose-detallado-de-componentes)
+8. [Sistema Visual y Contraste Adaptativo](#sistema-visual-y-contraste-adaptativo)
+9. [Requisitos e Instalación](#requisitos-e-instalación)
 
 ---
 
-## 1. Características Principales
+## Características Principales
 
-* **Catálogo Limpio para Producción:** Base de datos inicial 100% limpia sin registros de prueba precargados, lista para registrar inventario real desde el primer arranque.
-* **Buscador Multicriterio con Preservación de `ñ` / `Ñ`:** Búsqueda reactiva con `debounce(150ms)` ejecutada en hilos secundarios (`Dispatchers.Default`). Elimina tildes diacríticas (`á, é, í, ó, ú, ü`) para facilitar las consultas pero preserva estrictamente la letra **`ñ`** como carácter distintivo del español.
-* **Sincronización Bidireccional de Precios:** Cálculo automático entre Precio de Costo, Precio de Venta y botones de margen seleccionables (**`20%`, `25%`, `30%`, `40%`, `50%`**).
-* **Sistema de 5 Tipos de Solicitud de Precio:** Flujos especializados para alta de productos faltantes, subidas/bajadas de costo y ajustes por margen superior o inferior al deseado, cada uno con codificación cromática de alta legibilidad.
-* **Múltiples Variedades por Costo Idéntico:** Capacidad de agrupar bajo una misma solicitud el producto principal y todas sus variedades (sabores, medidas, presentaciones) que comparten el mismo costo, listándolas con viñetas (`· `) tanto en pantalla como en la imagen generada.
-* **Cámara Universal y Recorte Interactivo `16:9` Real:** Captura compatible con cualquier fabricante de Android (incluyendo cámaras personalizadas con fallback en memoria y `ClipData` seguro) y visor interactivo que muestra la foto completa permitiendo mover y redimensionar un recuadro `16:9` exacto sobre la imagen.
-* **Renderizado Infográfico Sin Bordes (`1080 px`):** Generación nativa en `Canvas` de fichas visuales en formato JPEG al 85% con fotografía `16:9` a ancho completo, tipografía negra de alto impacto sobre contenedores claros y envío directo de la imagen a WhatsApp.
-* **Contraste Dinámico Automático (Blanco / Negro):** Todos los menús, tarjetas, diálogos, listas desplegables y campos de texto evalúan la luminancia de su fondo en tiempo real: **fondo oscuro → texto blanco (`#FFFFFF`)**; **fondo claro → texto negro (`#111111`)**.
+- **Personalización del Local de Trabajo**: Configuración libre y persistente del nombre del comercio o sitio de trabajo desde el menú de opciones del catálogo o desde la barra superior, actualizando instantáneamente el encabezado principal y todos los reportes exportados.
+- **Catálogo Reactivo de Alta Velocidad**: Búsqueda instantánea por código, descripción o precios con soporte completo para caracteres en español (`ñ`, `Ñ`, vocales acentuadas) y filtros rápidos por estado o porcentaje de margen.
+- **Cálculo Automático de Márgenes y Redondeo Comercial**: Selección rápida de márgenes predefinidos (`20%`, `25%`, `30%`, `40%`, `50%`) con redondeo comercial automático a múltiplos de `500`.
+- **Gestor de 5 Tipos de Solicitudes de Precio**: Formularios especializados para alta de productos, subidas/bajadas de costo y ajustes de precio de venta sobre costo único.
+- **Exportación Dual (Texto Plano TXT o Imagen Render Monocroma)**:
+  - **Catálogo de Productos**: Permite enviar un producto individual, una selección múltiple o todo el catálogo eligiendo mediante un botón entre **Texto Plano (TXT)** o **Imagen Render Monocroma** (fondo blanco `#FFFFFF`, texto negro `#111111` y líneas divisorias negras, sin necesidad de fotos de cámara ni galería).
+  - **Historial de Solicitudes**: Permite exportar todo el historial de solicitudes o registros individuales eligiendo entre **Texto Plano (TXT)** o **Imagen Render Monocroma** con estructura idéntica a las consultas y solicitudes de cambio de precio.
+- **Recorte Interactivo 16:9 Opcional**: Editor táctil en pantalla completa con pellizco de zoom, arrastre libre y cuadrícula de tercios cuando se desea adjuntar evidencia fotográfica en solicitudes individuales.
+- **Contraste Dinámico Garantizado**: Algoritmo de luminancia que asigna automáticamente texto blanco (`#FFFFFF`) sobre fondos oscuros y texto negro (`#111111`) sobre fondos claros en todos los menús, tarjetas, botones y campos de texto.
 
 ---
 
-## 2. Arquitectura General del Sistema
+## Arquitectura del Sistema y Almacenamiento Binario
 
-El proyecto implementa una arquitectura **MVVM (Model-View-ViewModel)** reactiva combinada con un motor de persistencia binaria directa en memoria (`FastBinaryStore`) y respaldo estructurado:
+El proyecto implementa el patrón **MVVM (Model-View-ViewModel)** con flujo de datos unidireccional (`StateFlow`) y un motor de persistencia híbrido enfocado en velocidad extrema:
 
 ```text
-┌───────────────────────────────────────────────────────────────────────────┐
-│                   CAPA DE INTERFAZ (Jetpack Compose + M3)                 │
-│                                                                           │
-│  ┌─────────────────────┐  ┌──────────────────────┐  ┌──────────────────┐  │
-│  │   Módulo Catálogo   │  │  Módulo Solicitudes  │  │ Módulo Historial │  │
-│  │  - CatalogScreen    │  │  - RequestScreen     │  │ - RequestHistory │  │
-│  │  - QuickProductCard │  │  - Crop169Dialog     │  │   Screen         │  │
-│  │  - ProductListItem  │  │  - SelectablePctBlock│  │ - RequestHistory │  │
-│  │  - ProductDialog    │  │  - UniversalCamera   │  │   Card           │  │
-│  │  - WhatsAppDialog   │  │                      │  │                  │  │
-│  └──────────┬──────────┘  └──────────┬───────────┘  └────────┬─────────┘  │
-└─────────────┼────────────────────────┼───────────────────────┼────────────┘
-              │                        │                       │
-              ▼                        ▼                       ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                    CAPA DE ESTADO Y LÓGICA (ViewModels)                   │
-│                                                                           │
-│  ┌───────────────────────────────┐      ┌──────────────────────────────┐  │
-│  │       CatalogViewModel        │      │       RequestViewModel       │  │
-│  │ - StateFlow + Debounce 150ms  │      │ - Flujos por Tipo (1..5)     │  │
-│  │ - Filtrado en Default Thread  │      │ - Sincronización al Catálogo │  │
-│  │ - Exportación Texto WhatsApp  │      │ - Orquestación de Render 16:9│  │
-│  └───────────────┬───────────────┘      └──────────────┬───────────────┘  │
-└──────────────────┼─────────────────────────────────────┼──────────────────┘
-                   │                                     │
-                   ▼                                     ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│              MOTORES TRANSVERSALES Y PERSISTENCIA ULTRALIGERA             │
-│                                                                           │
-│  ┌─────────────────────┐  ┌──────────────────────┐  ┌──────────────────┐  │
-│  │      MathUtils      │  │      ImageUtils      │  │ FastBinaryStore  │  │
-│  │ - Redondeo Half-Up  │  │ - Submuestreo EXIF   │  │ - RAM StateFlow  │  │
-│  │ - Moneda Gs. Entera │  │ - Recorte Exacto 16:9│  │ - Escritura .tmp │  │
-│  │ - Normalizador Ñ/ñ  │  │ - Render Canvas 1080p│  │   Atómica (.dat) │  │
-│  └─────────────────────┘  └──────────────────────┘  └──────────────────┘  │
-└───────────────────────────────────────────────────────────────────────────┘
+app/src/main/java/com/example/
+├── MainActivity.kt                  # Punto de entrada, barra superior con nombre del local y navegación
+├── data/
+│   ├── model/
+│   │   ├── Product.kt               # Modelo de producto e índice de búsqueda precomputado
+│   │   └── PriceRequest.kt          # Modelo de solicitud de cambio de precio e historial
+│   ├── local/
+│   │   ├── FastBinaryStore.kt       # Motor de persistencia binaria directa (.bin) con escritura atómica
+│   │   ├── AppDatabase.kt           # Definición de base de datos Room
+│   │   ├── ProductDao.kt            # Consultas SQL de respaldo para catálogo
+│   │   ├── PriceRequestDao.kt       # Consultas SQL de respaldo para historial
+│   │   └── DatabaseSeeder.kt        # Inicializador de entorno limpio para producción
+│   └── repository/
+│       └── ProductRepository.kt     # Repositorio unificado de productos, solicitudes y nombre del local
+├── ui/
+│   ├── catalog/
+│   │   ├── CatalogViewModel.kt      # Lógica de filtrado con debounce, selección, nombre del local y exportación
+│   │   ├── CatalogScreen.kt         # Pantalla de catálogo, diálogo de nombre del local y acciones rápidas
+│   │   ├── ProductDialog.kt         # Modal de creación/edición con guardado y envío directo
+│   │   └── WhatsAppExportDialog.kt  # Modal de exportación de catálogo (Texto TXT o Imagen Monocroma)
+│   ├── request/
+│   │   ├── RequestViewModel.kt      # Máquina de estados y validaciones para los 5 tipos de solicitud
+│   │   ├── RequestScreen.kt         # Formulario dinámico por tipo de solicitud y captura fotográfica opcional
+│   │   ├── Crop169Dialog.kt         # Editor interactivo de recorte 16:9 sobre imagen completa
+│   │   └── RequestHistoryScreen.kt  # Historial de solicitudes con exportación en TXT o Imagen Monocroma
+│   └── theme/
+│       ├── Color.kt                 # Paleta semántica y funciones de contraste por luminancia
+│       ├── Theme.kt                 # Configuración Material 3 y colores adaptativos para campos de texto
+│       └── Type.kt                  # Definición tipográfica de alta legibilidad
+└── util/
+    ├── MathUtils.kt                 # Fórmulas de margen, redondeo comercial y normalización UTF-8
+    └── ImageUtils.kt                # Renderizado de infografías e imágenes monocromas de catálogo e historial
 ```
 
----
-
-## 3. Desglose Detallado de Todos los Componentes
-
-### 3.1 Capa de Navegación y Tema de Alto Contraste Adaptativo
-
-* **`MainActivity` y `MainAppRoot`**:
-  * Punto de entrada de la aplicación con soporte `enableEdgeToEdge()` e insectos seguros de barra de estado y barra de navegación (`WindowInsets.statusBars` y `WindowInsets.navigationBars`).
-  * Gestiona la navegación principal entre las tres vistas troncales (`CATALOGO`, `NUEVA_SOLICITUD`, `HISTORIAL`) mediante `NavigationBar` e intercepta el botón físico/gesto de retroceso con `BackHandler` para regresar al catálogo desde pantallas secundarias.
-  * Permite enviar un producto seleccionado directamente desde el catálogo hacia el generador de solicitudes `16:9` precargando todos sus datos.
-* **`Color.kt` y `Theme.kt`**:
-  * Define la paleta semántica para los 5 tipos de solicitud evitando tonos de bajo contraste:
-    1. **Tipo 1 (Falta Registrar):** Verde Esmeralda (`#1B5E20` / Contenedor `#E8F5E9`).
-    2. **Tipo 2 (Costo Subió):** Azul Intenso (`#0D47A1` / Contenedor `#E3F2FD`).
-    3. **Tipo 3 (Costo Bajó):** Naranja Fuerte (`#D84315` / Contenedor `#FFF3E0`).
-    4. **Tipo 4 (Supera % Deseado):** Teal / Turquesa Oscuro (`#00695C` / Contenedor `#E0F2F1`).
-    5. **Tipo 5 (Menor a % Deseado):** Rojo Carmesí (`#B71C1C` / Contenedor `#FFEBEE`).
-  * **`getContrastingTextColor(backgroundColor)`**: Función determinista que calcula la luminancia del color de fondo; devuelve blanco puro (`#FFFFFF`) cuando la luminancia es `< 0.45f` (fondo oscuro) y negro profundo (`#111111`) cuando el fondo es claro.
-  * **`adaptiveTextFieldColors(containerColor, borderColor)`**: Configura automáticamente todos los `OutlinedTextField` para que el texto ingresado, etiquetas, placeholders, iconos, cursores y textos de soporte respeten la regla blanco sobre oscuro / negro sobre claro.
+### Motor `FastBinaryStore` (`.bin`)
+Para evitar bloqueos de interfaz en dispositivos con procesadores modestos o almacenamiento lento, `FastBinaryStore` mantiene el estado en memoria mediante `StateFlow` y serializa los registros directamente en flujos binarios (`DataOutputStream` / `DataInputStream`):
+- **Escritura Atómica**: Cada cambio se escribe primero en un archivo temporal (`.tmp`) con cabecera mágica de validación (`MAGIC_PRODUCTS = 0x53545031`, `MAGIC_REQUESTS = 0x53545231`, `MAGIC_CONFIG = 0x53544331`) y luego reemplaza atómicamente al archivo `.bin` definitivo (`store_products_v1.bin`, `store_requests_v1.bin`, `store_config_v1.bin`).
+- **Concurrencia Segura**: Utiliza `Mutex` independientes para catálogo, historial y configuración del local sobre `Dispatchers.IO`, garantizando lecturas instantáneas en el hilo principal.
 
 ---
 
-### 3.2 Módulo 1: Catálogo de Productos y Gestor de Precios
+## Personalización del Sitio o Local de Trabajo
 
-* **`CatalogScreen`**:
-  * **Buscador Reactivo Multicriterio (`catalog_search_bar`)**: Permite buscar simultáneamente por código de barras/referencia, descripción (respetando la `ñ`), precio de costo o precio de venta.
-  * **Menú Desplegable de Selección**: Opciones rápidas para seleccionar todos los productos visibles en el filtro actual o limpiar la selección activa.
-  * **Barra Horizontal de Filtros (`LazyRow`)**: Chips optimizados con claves estables (`key`) y `contentType` para filtrar por `Todos`, `Completos`, `Sin Código`, `Falta Registrar`, `Seleccionados`, `20%`, `25%` y `Personalizado`.
-  * **Estado Vacío Ligero (Empty State)**: Cuando el catálogo está vacío, presenta un acceso directo para registrar el primer producto sin consumir memoria en vistas innecesarias.
-* **`QuickProductCard`**:
-  * Tarjeta compacta dentro del carrusel horizontal de acceso rápido/recientes (`190.dp x 118.dp`).
-  * Muestra código, insignia de porcentaje real con borde de color, descripción en dos líneas, precio de venta formateado en `Gs.` y botones de acción rápida para **Compartir individualmente** o **Editar**.
-* **`ProductListItem`**:
-  * Componente principal de cada fila del `LazyColumn` del catálogo.
-  * Incluye casilla de selección (`Checkbox`), insignia de código (`Cód: ...`), alerta visual si el estado es `FALTA_REGISTRAR`, desglose de **Costo**, **Venta** y **Margen Real Redondeado**, y cuatro acciones directas en cabecera:
-    1. **Compartir producto por WhatsApp** (envío inmediato de texto formateado).
-    2. **Crear Ficha `16:9`** (abre el Módulo 2 con el producto precargado).
-    3. **Editar producto** (abre `ProductDialog`).
-    4. **Eliminar producto**.
-* **`ProductDialog`**:
-  * Diálogo modal para alta y edición de productos del catálogo.
-  * Campos: Código (opcional), Descripción (obligatoria, soporte completo UTF-8 con `ñ`), Precio de Costo (`Gs.`), grupo de botones seleccionables de porcentaje (**`20%`, `25%`, `30%`, `40%`, `50%`**) y Precio de Venta (`Gs.`).
-  * Calcula en vivo el **Margen Real Redondeado** y ofrece dos flujos de guardado: **Guardar Producto** o **Guardar y Compartir por WhatsApp**.
-* **`WhatsAppExportDialog`**:
-  * Diálogo de exportación por lotes para todos los productos marcados en el catálogo.
-  * Permite activar o desactivar dinámicamente qué datos incluir en el listado (`Código`, `Precio de Costo`, `Precio de Venta`, `% Margen`), mostrando una vista previa monoespaciada instantánea antes de abrir WhatsApp.
-* **`CatalogViewModel`**:
-  * Administra el flujo de estado `CatalogUiState` combinando la lista reactiva de `ProductRepository`, la consulta de búsqueda con `debounce(150L)` y el filtro activo sobre `Dispatchers.Default`.
+El usuario puede personalizar a voluntad el nombre del local o sitio de trabajo en cualquier momento:
+1. **Desde el Menú de Opciones del Catálogo**: Pulsando el botón de tres puntos (`Opciones`) junto a la barra de búsqueda y seleccionando **"Configurar nombre del local"**.
+2. **Desde la Barra Superior (`TopAppBar`)**: Pulsando directamente sobre el nombre del local o el icono de edición en el encabezado de la aplicación.
+
+El nombre configurado se guarda de forma persistente en `store_config_v1.bin` y reemplaza automáticamente el nombre del comercio en:
+- El encabezado principal de la aplicación (`TopAppBar`).
+- Los mensajes de exportación del catálogo en Texto Plano (TXT) y en Imagen Render Monocroma.
+- Los reportes de exportación del historial de solicitudes en Texto Plano (TXT) y en Imagen Render Monocroma.
+- Las fichas generadas en el gestor de solicitudes.
 
 ---
 
-### 3.3 Módulo 2: Generador de Solicitudes y Fichas Visuales 16:9
+## Reglas Matemáticas y Financieras
 
-* **`RequestScreen`**:
-  * **Banner Informativo y Selector de Tipo (1 a 5)**: Adapta sus bordes, contenedores y estructura del formulario según la opción elegida.
-  * **Sección Multimedia (`16:9`)**:
-    * Botones para capturar fotografía desde **Cámara** (con solicitud de permiso `Manifest.permission.CAMERA` en tiempo de ejecución) o elegir imagen desde **Galería** (`PickVisualMedia` con fallback universal `GetContent`).
-    * Vista previa `16:9` de la imagen recortada con opción de reencuadrar en cualquier momento.
-  * **Sección de Datos del Producto y Variedades**:
-    * En los tipos `2, 3, 4 y 5`, incluye un buscador desplegable (`ExposedDropdownMenuBox`) conectado al catálogo para autocompletar código, descripción y precios actuales.
-    * Campos de **Código (Opcional)** y **Descripción / Nombre Principal (Obligatorio)** disponibles en los 5 tipos de solicitud.
-    * **Gestor de Variedades con Mismo Costo**: Permite añadir múltiples nombres o variedades adicionales que comparten el mismo costo; muestra una vista previa con viñetas (`· `) idéntica a como se imprimirá en la ficha gráfica.
-    * Campos opcionales de inventario: **Stock Anterior** y **Recarga Stock**.
-  * **Sección de Valores de Costo y Venta (Orden Estricto por Tipo)**:
-    * **Tipo 1 (*Falta Registrar*):**
-      1. Precio de Costo (`Gs.`)
-      2. Precio de Venta (`Gs.`) con botones seleccionables (`20%` a `50%`)
-    * **Tipos 2 y 3 (*Subida y Bajada de Costo*):**
-      1. Precio de Costo Anterior (`Gs.`)
-      2. Precio de Costo Nuevo (`Gs.`)
-      3. Precio de Venta Anterior (`Gs.`) con botones seleccionables (`20%` a `50%`)
-      4. Precio de Venta Nuevo (`Gs.`) con botones seleccionables (`20%` a `50%`)
-    * **Tipos 4 y 5 (*Cambio de Precio de Venta al Subir y Bajar — Costo Único*):**
-      1. Precio de Costo (`Gs.`, una sola vez)
-      2. Precio de Venta Anterior (`Gs.`) con botones seleccionables (`20%` a `50%`)
-      3. Precio de Venta Nuevo (`Gs.`) con botones seleccionables (`20%` a `50%`)
-* **`SelectablePercentageAndPriceBlock`**:
-  * Componente reutilizable que vincula un campo de Precio de Venta con su insignia de porcentaje activo y la fila exclusiva de botones seleccionables **`20%`, `25%`, `30%`, `40%`, `50%`**.
-* **`UniversalTakePictureContract`**:
-  * Contrato de cámara personalizado que genera un archivo temporal vía `FileProvider`, adjunta `ClipData` con permisos de lectura/escritura para máxima compatibilidad en cualquier versión de Android y dispone de lectura de respaldo (`extras["data"]`) para cámaras de gama baja.
-* **`Crop169Dialog`**:
-  * Visor interactivo a pantalla completa que dibuja la fotografía original íntegra centrada en pantalla y superpone un recuadro `16:9` con regla de los tercios y esquinas reforzadas.
-  * Permite arrastrar libremente el recuadro `16:9` sobre cualquier zona de la imagen y ajustar su escala (`30%` a `100%`) mediante gestos multitáctiles o control deslizable (`Slider`), garantizando que el área recortada coincida exactamente con la selección visual del usuario.
-* **`RequestViewModel`**:
-  * Orquesta la lógica bidireccional de precios anteriores y nuevos, valida los campos requeridos, invoca la generación de la infografía en segundo plano (`Dispatchers.IO`), guarda la solicitud en el historial y actualiza automáticamente el catálogo general de productos.
+Implementadas en `com.example.util.MathUtils`:
+
+1. **Porcentaje de Ganancia Real Redondeado** (`calcularPorcentajeRedondeado`):
+   $$\text{Porcentaje} = \text{round}\left(\frac{\text{PrecioVenta} - \text{PrecioCosto}}{\text{PrecioCosto}} \times 100\right)$$
+   Devuelve un entero (`Int`) exacto para mostrar en insignias y fichas sin decimales confusos.
+
+2. **Cálculo de Precio de Venta con Redondeo Comercial** (`calcularVentaDesdePorcentaje`):
+   - Calcula el precio base aplicando el porcentaje seleccionado (`20%`, `25%`, `30%`, `40%` o `50%`):
+     $$\text{VentaCruda} = \text{round}\left(\text{PrecioCosto} \times \left(1 + \frac{\text{Porcentaje}}{100}\right)\right)$$
+   - Aplica redondeo comercial hacia arriba al múltiplo de **500** más cercano (`redondear Guaranies`):
+     $$\text{Resto} = \text{VentaCruda} \bmod 500$$
+     Si $\text{Resto} > 0$, se suma $(500 - \text{Resto})$ al valor crudo.
+
+3. **Normalización Lingüística con Preservación de `ñ`** (`normalizarConEnie`):
+   - Convierte el texto a minúsculas y elimina tildes diacríticas (`á -> a`, `é -> e`, `í -> i`, `ó -> o`, `ú -> u`, `ü -> u`), pero **conserva intacta la letra `ñ`**.
 
 ---
 
-### 3.4 Módulo 3: Historial de Solicitudes
+## Flujos de Solicitud de Cambio de Precios (5 Tipos)
 
-* **`RequestHistoryScreen` y `RequestHistoryCard`**:
-  * Lista cronológica optimizada (`LazyColumn` con `key` y `contentType`) de todas las solicitudes generadas.
-  * Cada tarjeta adopta el contenedor claro y el borde del color identificativo de su tipo (`1` a `5`), mostrando fecha/hora, lista con viñetas (`· `) del producto y sus variedades, código, stock anterior/recarga y el desglose de precios en el mismo orden estricto del formulario.
-  * Incluye botón directo **Reenviar Ficha a WhatsApp** (que comparte el archivo JPEG renderizado sin necesidad de regenerarlo) y botón de eliminación individual.
+El módulo de solicitudes (`RequestScreen.kt` + `RequestViewModel.kt`) adapta dinámicamente los campos de entrada, las validaciones de negocio y el orden de salida en la ficha según el tipo de solicitud seleccionado:
 
----
+| Tipo | Nombre de Solicitud | Orden Exacto de Campos de Costo y Venta | Regla de Validación |
+| :--- | :--- | :--- | :--- |
+| **1** | **Falta Registrar** | 1. Precio de Costo<br>2. Precio de Venta (con botones `20%` a `50%`) | Costo > 0 y Venta > 0 |
+| **2** | **Costo Subió** | 1. Precio de Costo Anterior<br>2. Precio de Costo Nuevo<br>3. Precio de Venta Anterior (con botones `20%` a `50%`)<br>4. Precio de Venta Nuevo (con botones `20%` a `50%`) | `Costo Nuevo > Costo Anterior` |
+| **3** | **Costo Bajó** | 1. Precio de Costo Anterior<br>2. Precio de Costo Nuevo<br>3. Precio de Venta Anterior (con botones `20%` a `50%`)<br>4. Precio de Venta Nuevo (con botones `20%` a `50%`) | `Costo Nuevo < Costo Anterior` |
+| **4** | **Supera % deseado** | 1. Precio de Costo (único)<br>2. Precio de Venta Anterior (con botones `20%` a `50%`)<br>3. Precio de Venta Nuevo (con botones `20%` a `50%`) | Un solo costo base; `Venta Nueva > Venta Anterior` |
+| **5** | **Menor a % deseado** | 1. Precio de Costo (único)<br>2. Precio de Venta Anterior (con botones `20%` a `50%`)<br>3. Precio de Venta Nuevo (con botones `20%` a `50%`) | Un solo costo base; `Venta Nueva < Venta Anterior` |
 
-### 3.5 Capa de Datos y Almacenamiento Binario Ultraligero
-
-* **`FastBinaryStore`**:
-  * Motor de almacenamiento binario directo diseñado para eliminar cuellos de botella en dispositivos con procesadores básicos y almacenamiento lento:
-    * Mantiene el estado activo en memoria RAM mediante `MutableStateFlow` para lecturas instantáneas en `O(1)`.
-    * Serializa colecciones completas de `Product` y `PriceRequest` usando `BufferedOutputStream` y `DataOutputStream` sobre archivos binarios compactos (`products_v2.bin` y `requests_v2.bin`).
-    * Implementa **escritura atómica transaccional** escribiendo primero en un archivo temporal (`.tmp`) y renombrándolo al archivo definitivo para evitar corrupción de datos ante cierres inesperados o cortes de batería.
-* **`Product` y `PriceRequest` (`@Immutable`)**:
-  * Modelos de dominio inmutables anotados con `@Immutable` para permitir que el compilador de Jetpack Compose omita recomposiciones innecesarias.
-  * `Product` precalcula al instanciarse el campo `searchIndex` normalizando código, descripción (con `ñ`), costo y venta una sola vez.
-* **`AppDatabase`, `ProductDao`, `PriceRequestDao`, `ProductEntity`, `PriceRequestEntity`**:
-  * Esquema estructurado con índices explícitos en `codigo` y `descripcion` y soporte de migración limpia sin datos semilla de prueba.
-* **`ProductRepository`**:
-  * Repositorio centralizado (Singleton) que expone flujos reactivos (`Flow<List<Product>>` y `Flow<List<PriceRequest>>`) y coordina las operaciones CRUD de productos y solicitudes.
+En todos los tipos se permite agregar múltiples **variedades o presentaciones con el mismo costo**, las cuales se listan automáticamente con viñetas (`· `) bajo el encabezado `Nombre Producto:`.
 
 ---
 
-### 3.6 Motores Transversales de Cálculo e Imagen
+## Exportación en Texto Plano (TXT) e Imagen Render Monocroma
 
-* **`MathUtils`**:
-  * Encapsula toda la aritmética comercial en enteros largos (`Long`) para evitar errores de coma flotante:
-    * `redondearHalfUp(valor: Double): Int`
-    * `calcularPorcentajeRedondeado(costo: Long, venta: Long): Int`
-    * `calcularVentaDesdePorcentaje(costo: Long, porcentaje: Int): Long`
-    * `formatearGuaranies(monto: Long): String` (formato con separador de miles por puntos, ej. `13.500`).
-    * `normalizarConEnie(input: String): String` (elimina diacríticos salvo `ñ`/`Ñ`).
-* **`ImageUtils`**:
-  * **`decodeBitmapFromUri`**: Calcula `inSampleSize` leyendo primero solo las dimensiones (`inJustDecodeBounds = true`) para limitar la textura en RAM a un máximo de `1280x720 px` y corrige automáticamente la rotación según los metadatos `ExifInterface`.
-  * **`cropTo16By9`**: Extrae con precisión sub-píxel el rectángulo normalizado seleccionado en `Crop169Dialog` y lo escala a `1280x720 px` (`RGB_565` / `ARGB_8888`), reciclando bitmaps intermedios cuando corresponde.
-  * **`generateInfographicBitmap`**: Renderiza en un `Canvas` nativo de `1080 px` de ancho la ficha para WhatsApp:
-    1. Cabecera superior con el color identificativo del tipo de solicitud y título de alto contraste.
-    2. Fotografía `16:9` a **ancho completo (`1080x607 px`) sin bordes laterales ni insignias superpuestas**.
-    3. Bloque de **Nombre Producto** con lista de puntos (`· `) para el nombre principal y todas las variedades declaradas, con ajuste automático de línea (`wrapTextLines`), más código y stock opcionales.
-    4. Tarjeta inferior de precios con fondo claro del tipo de solicitud, borde coloreado de `4 px` y tipografía negra extra-grande en el orden exacto de cada tipo de solicitud.
-  * **`saveBitmapToCacheAndGetUri` y `shareImageOnlyToWhatsApp`**: Comprime la ficha en **JPEG al 85% de calidad**, expone un `content://` URI seguro mediante `FileProvider` y lanza el `Intent.ACTION_SEND` (`image/jpeg`) dirigido a WhatsApp.
+Tanto en el **Catálogo de Productos** (`WhatsAppExportDialog.kt`) como en el **Historial de Solicitudes** (`RequestHistoryScreen.kt`), el usuario dispone de un selector de formato mediante botones para elegir cómo enviar la información:
+
+1. **Texto Plano (TXT)**:
+   - Genera un mensaje estructurado libre de emojis, encabezado por el nombre personalizado del local de trabajo y con separadores de texto limpio, listo para enviarse como mensaje de texto por WhatsApp.
+2. **Imagen Render Monocroma (`generateMonochromeCatalogBitmap` / `generateMonochromeHistoryBitmap`)**:
+   - No requiere fotos de cámara ni de galería.
+   - Renderiza mediante `Canvas` y `StaticLayout` un documento visual de `1080px` de ancho estrictamente monocromo (**fondo blanco `#FFFFFF`, texto negro `#111111` y líneas divisorias negras `#111111`**).
+   - Utiliza exactamente la misma disposición tipográfica que las solicitudes y consultas de cambios de precios (`Nombre Producto:`, lista con viñetas `· `, `Código`, `Precio de Costo Gs.` y `Precio de Venta Gs. (%)`).
 
 ---
 
-## 4. Reglas Matemáticas y de Negocio
+## Desglose Detallado de Componentes
 
-1. **Moneda Entera (`Gs.`):** Todos los importes monetarios se almacenan y procesan como enteros de 64 bits (`Long`), sin decimales, formateados con puntos de miles (`Gs. 25.000`).
-2. **Fórmula de Margen Real sobre Costo:**
-   $$\text{Margen Exacto (\%)} = \left(\frac{\text{Precio Venta} - \text{Precio Costo}}{\text{Precio Costo}}\right) \times 100$$
-3. **Regla de Redondeo Half-Up (`>= 0.5`):**
-   * Si la parte decimal del porcentaje es **$\ge 0.5$**, se redondea al entero inmediatamente superior (`Math.floor(valor + 0.5)`).
-   * Si la parte decimal es **$< 0.5$**, se mantiene el entero inferior.
-4. **Cálculo de Precio de Venta desde Porcentaje Seleccionable (`20%`, `25%`, `30%`, `40%`, `50%`):**
-   $$\text{Precio Venta} = \text{RedondearHalfUp}\left(\text{Precio Costo} \times \left(1 + \frac{\text{Porcentaje}}{100}\right)\right)$$
-5. **Normalización Lingüística con Preservación de `ñ`:**
-   * Antes de descomponer caracteres en `NFD`, las letras `ñ` y `Ñ` se protegen mediante un token interno, se eliminan las marcas diacríticas Unicode (`\p{InCombiningDiacriticalMarks}+`) de las vocales acentuadas y finalmente se restauran como `ñ`, permitiendo distinguir y buscar con exactitud términos comerciales en español.
+### 1. Capa de Datos (`com.example.data`)
+- **`Product` (`Product.kt`)**: Entidad principal del catálogo. Almacena `id`, `codigo`, `codigoAlternativo`, `descripcion`, `precioCosto`, `precioVenta`, `porcentajePersonalizado`, `porcentajeRealRedondeado`, `estadoRegistro` (`COMPLETO`, `SIN_CODIGO`, `FALTA_REGISTRAR`) y una propiedad `@Ignore val searchIndex` precalculada al instanciar el objeto para filtrado $O(1)$ sin asignaciones de memoria repetitivas.
+- **`PriceRequest` (`PriceRequest.kt`)**: Entidad de solicitudes generadas. Registra `tipoId` (`1..5`), `titulo`, URIs de imagen, códigos, descripción principal, `variedadesMismoCosto`, precios de costo/venta anteriores y nuevos, márgenes redondeados y datos opcionales de stock (`stockAnterior`, `recargaStock`).
+- **`FastBinaryStore` (`FastBinaryStore.kt`)**: Almacén binario singleton en memoria y disco que expone `productsFlow`, `requestsFlow` y `workplaceNameFlow`.
+- **`ProductRepository` (`ProductRepository.kt`)**: Abstracción de acceso a datos consumida por `CatalogViewModel` y `RequestViewModel`.
+
+### 2. Módulo de Catálogo (`com.example.ui.catalog`)
+- **`CatalogViewModel`**: Combina el flujo de productos, el nombre personalizado del local, la consulta de búsqueda con `debounce(90L)` ejecutada en `Dispatchers.Default`, el filtro activo y el conjunto de IDs seleccionados.
+- **`CatalogScreen`**:
+  - Barra de búsqueda reactiva y menú de opciones con acceso directo a **"Configurar nombre del local"** y **"Enviar todo el catálogo (TXT o Imagen)"**.
+  - Fila horizontal de `FilterChip` (`Todos`, `Completos`, `Sin Código`, `Falta Registrar`, `Seleccionados`, `20%`, `25%`, `Personalizado`).
+  - Carrusel de tarjetas de acceso rápido (`QuickProductCard`) y lista principal (`ProductListItem`) con acciones para compartir individualmente, crear solicitud, editar o eliminar.
+- **`WorkplaceNameDialog`**: Diálogo modal para personalizar y guardar el nombre del sitio o local de trabajo.
+- **`ProductDialog`**: Modal de registro y edición de productos con cálculo reactivo de precio de venta según botones de porcentaje (`20%` a `50%`) y botón directo **"Guardar y Compartir (TXT o Imagen)"**.
+- **`WhatsAppExportDialog`**: Modal de exportación que permite elegir entre **Texto Plano (TXT)** o **Imagen Monocroma**, seleccionar qué campos incluir (`Código`, `Precio de Costo`, `Precio de Venta`, `% Margen`) y visualizar una vista previa antes de enviar.
+
+### 3. Módulo de Solicitudes e Historial (`com.example.ui.request`)
+- **`RequestScreen`**:
+  - Selector horizontal para los 5 tipos de solicitud.
+  - Captura fotográfica opcional mediante `UniversalTakePictureContract` o selector de galería `PickVisualMedia`.
+  - Buscador autocompletable de productos registrados para los tipos 2, 3, 4 y 5.
+  - Componente reutilizable `SelectablePercentageAndPriceBlock` que vincula cada campo de precio de venta con su grupo exclusivo de botones seleccionables de `20%` a `50%`.
+- **`Crop169Dialog`**: Modal de pantalla completa que dibuja la fotografía completa sobre un `Canvas` y superpone un marco interactivo con relación de aspecto `16:9` bloqueada.
+- **`RequestHistoryScreen` y `HistoryExportDialog`**: Lista cronológica de solicitudes con botón superior **"Exportar Historial"** y botón por tarjeta **"TXT / Monocromo"**, permitiendo enviar tanto el historial completo como solicitudes individuales en texto plano o en imagen render monocroma.
+
+### 4. Procesamiento Gráfico (`com.example.util.ImageUtils`)
+- **`decodeBitmapFromUri`**: Decodifica imágenes calculando `inSampleSize` para ajustarlas a un máximo de `1280px` en formato `Bitmap.Config.RGB_565` (50% menos consumo de RAM que `ARGB_8888`) y corrige la orientación EXIF.
+- **`cropTo16By9`**: Extrae la subregión exacta seleccionada por el usuario manteniendo proporción `16:9`.
+- **`generateInfographicBitmap`**: Renderiza en un `Canvas` de `1080px` de ancho la foto `16:9` opcional a sangre completa seguida del nombre del local, el título de la solicitud, la lista de variedades con viñetas y los precios en tipografía monocroma de alto contraste.
+- **`generateMonochromeCatalogBitmap` y `generateMonochromeHistoryBitmap`**: Generadores de imágenes monocromas (`#FFFFFF` sobre `#111111`) para exportar el catálogo completo o el historial de solicitudes como imagen sin necesidad de fotografías.
 
 ---
 
-## 5. Optimizaciones para Dispositivos de Gama Baja
+## Sistema Visual y Contraste Adaptativo
 
-| Área | Técnica Implementada | Beneficio en Gama Baja (2 GB – 3 GB RAM) |
-| :--- | :--- | :--- |
-| **Almacenamiento** | `FastBinaryStore` con `DataInputStream`/`DataOutputStream` y caché en RAM | Carga inicial y escrituras en milisegundos sin sobrecarga de ORM ni bloqueos de hilo principal. |
-| **Búsqueda** | Índice precalculado `searchIndex` en cada `Product` + `debounce(150ms)` en `Dispatchers.Default` | Cero tirones (jank) al escribir rápido en catálogos extensos. |
-| **Listas Compose** | Claves únicas (`key = { it.id }`), `contentType`, modelos `@Immutable` y `derivedStateOf` | Reutilización óptima de nodos en `LazyColumn` y `LazyRow` con mínimas recomposiciones. |
-| **Fotografía y Canvas** | Submuestreo `BitmapFactory.Options.inSampleSize` a `1280x720 px` y salida JPEG al 85% | Prevención estricta de `OutOfMemoryError` (OOM) al abrir cámara o galería. |
-| **Interfaz Gráfica** | Bordes definidos y colores sólidos de alto contraste sin desenfoques ni sombras pesadas | Renderizado fluido a 60 FPS en GPUs básicas. |
+Definido en `com.example.ui.theme.Color.kt` y `Theme.kt`:
+- **Regla de Luminancia Automática (`getContrastingTextColor`)**:
+  Evalúa `backgroundColor.luminance() < 0.45f`.
+  - Si el fondo es **oscuro**, aplica texto e iconos en **blanco puro (`#FFFFFF`)**.
+  - Si el fondo es **claro**, aplica texto e iconos en **negro profundo (`#111111`)**.
+- **Campos de Texto Adaptativos (`adaptiveTextFieldColors`)**: Ajusta automáticamente el color del texto ingresado, etiquetas, placeholders, iconos y cursores de todos los `OutlinedTextField` según la luminancia de su contenedor.
 
 ---
 
-## 6. Requisitos, Instalación y Compilación
+## Requisitos e Instalación
 
-### Requisitos Previos
-* **Android Studio:** Ladybug (2024.2.1) o superior.
-* **JDK:** Java 17 o superior.
-* **Android SDK:** `minSdk = 24` (Android 7.0 Nougat) / `targetSdk = 35` / `compileSdk = 35`.
+### Requisitos Técnicos
+- **Android Studio**: Ladybug (2024.2.1) o superior.
+- **JDK**: Java 17.
+- **SDK Mínimo (`minSdk`)**: API 24 (Android 7.0 Nougat) — compatible con dispositivos de gama baja.
+- **SDK Objetivo (`targetSdk` / `compileSdk`)**: API 35 / 36.
 
-### Pasos para Clonar y Compilar
-
-1. **Clonar el repositorio:**
+### Compilación y Ejecución
+1. Clonar el repositorio:
    ```bash
-   git clone <URL_DEL_REPOSITORIO>
-   cd <NOMBRE_DEL_DIRECTORIO>
+   git clone <url-del-repositorio>
+   cd <nombre-del-directorio>
    ```
-
-2. **Compilar el APK de depuración mediante Gradle:**
+2. Compilar el APK de depuración mediante Gradle:
    ```bash
    gradle assembleDebug
    ```
-   *(O utilizando el wrapper en entornos locales: `./gradlew assembleDebug`)*
-
-3. **Ejecutar pruebas unitarias y de validación local:**
+3. Ejecutar las pruebas unitarias locales (Robolectric / JUnit):
    ```bash
    gradle :app:testDebugUnitTest
-   ```
-
-4. **Ubicación del APK generado:**
-   El archivo instalable se generará en:
-   ```text
-   app/build/outputs/apk/debug/app-debug.apk
    ```

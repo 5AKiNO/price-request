@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Autoservicio Claudia"
+rootProject.name = "Sistema de Precios"
 
 include(":app")

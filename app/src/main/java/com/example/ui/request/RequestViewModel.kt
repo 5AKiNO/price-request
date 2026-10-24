@@ -23,6 +23,7 @@ import java.util.UUID
 
 @Immutable
 data class RequestUiState(
+    val workplaceName: String = FastBinaryStore.DEFAULT_WORKPLACE_NAME,
     val selectedTipoId: Int = 1,
     val selectedProduct: Product? = null,
     val codigo: String = "",
@@ -56,6 +57,11 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
     val uiState: StateFlow<RequestUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            repository.workplaceName.collect { workplace ->
+                _uiState.update { it.copy(workplaceName = workplace) }
+            }
+        }
         viewModelScope.launch {
             repository.allProducts.collect { prods ->
                 _uiState.update { it.copy(allProducts = prods) }
@@ -421,7 +427,8 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             val imageUri = withContext(Dispatchers.Default) {
                 val compositeBitmap = ImageUtils.generateInfographicBitmap(
                     photo16by9 = state.croppedBitmap169,
-                    request = priceRequest
+                    request = priceRequest,
+                    workplaceName = state.workplaceName
                 )
                 val fileName = "solicitud_${priceRequest.id}.jpg"
                 ImageUtils.saveBitmapToCache(getApplication(), compositeBitmap, fileName)
@@ -451,6 +458,7 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
     fun resetForm() {
         _uiState.update {
             RequestUiState(
+                workplaceName = it.workplaceName,
                 allProducts = it.allProducts,
                 allRequests = it.allRequests
             )

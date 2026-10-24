@@ -355,7 +355,7 @@ fun RequestScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Evidencia Fotográfica (16:9)",
+                        text = "Evidencia Fotográfica (Opcional 16:9)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = cardTextColor
@@ -366,7 +366,7 @@ fun RequestScreen(
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = if (uiState.croppedBitmap169 != null) "✓ 16:9 Listo" else "Formato 16:9",
+                            text = if (uiState.croppedBitmap169 != null) "Listo (16:9)" else "Opcional 16:9",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = textOnActiveContainer,

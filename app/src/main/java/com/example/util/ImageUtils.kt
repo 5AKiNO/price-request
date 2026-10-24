@@ -18,8 +18,12 @@ import android.text.TextPaint
 import androidx.core.content.FileProvider
 import androidx.core.graphics.ColorUtils
 import com.example.data.model.PriceRequest
+import com.example.data.model.Product
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 object ImageUtils {
@@ -48,13 +52,12 @@ object ImageUtils {
 
             val decodeOptions = BitmapFactory.Options().apply {
                 inSampleSize = sampleSize
-                inPreferredConfig = Bitmap.Config.RGB_565 // Low-memory footprint on budget hardware
+                inPreferredConfig = Bitmap.Config.RGB_565
             }
             val rawBitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, decodeOptions)
             } ?: return null
 
-            // Read EXIF orientation safely
             val orientation = try {
                 context.contentResolver.openInputStream(uri)?.use { exifStream ->
                     val exif = ExifInterface(exifStream)
@@ -92,8 +95,7 @@ object ImageUtils {
 
     /**
      * Crops a bitmap to exact 16:9 aspect ratio using the normalized selection rectangle
-     * (0f..1f relative to source bitmap width and height) so the cropped output matches
-     * 100% what the user selected inside the 16:9 frame.
+     * (0f..1f relative to source bitmap width and height).
      */
     fun cropTo16By9(
         source: Bitmap,
@@ -113,7 +115,6 @@ object ImageUtils {
             var width = ((normR - normL) * srcW).roundToInt().coerceAtLeast(16)
             var height = ((normB - normT) * srcH).roundToInt().coerceAtLeast(9)
 
-            // Enforce exact 16:9 inside source bounds
             if (width * 9 > height * 16) {
                 width = (height * 16) / 9
             } else {
@@ -128,7 +129,6 @@ object ImageUtils {
 
             return Bitmap.createBitmap(source, left, top, width, height)
         } else {
-            // Default centered 16:9 crop
             val cropW: Int
             val cropH: Int
             val left: Int
@@ -162,18 +162,15 @@ object ImageUtils {
     }
 
     /**
-     * Generates a borderless, full-width composite infographic image:
-     * - Zero outer borders around the image
-     * - Full-width 16:9 photo at the top (0..1080px) without any "HD" badge or border
-     * - Monochrome text (#111111) across all labels, names, and prices for 100% legibility
-     * - Exact price ordering per Request Type:
-     *   * Type 1: Precio de Costo, Precio de Venta (%)
-     *   * Types 2 & 3: Precio de Costo Anterior, Precio de Costo Nuevo, Precio de Venta Anterior (%), Precio de Venta Nuevo (%)
-     *   * Types 4 & 5: Precio de Costo (único), Precio de Venta Anterior (%), Precio de Venta Nuevo (%)
+     * Generates a borderless, full-width composite infographic image for a PriceRequest:
+     * - Full-width 16:9 photo at the top if present (optional)
+     * - Monochrome text (#111111) across all labels, names, and prices
+     * - Exact price ordering per Request Type (1, 2-3, 4-5)
      */
     fun generateInfographicBitmap(
         photo16by9: Bitmap?,
-        request: PriceRequest
+        request: PriceRequest,
+        workplaceName: String? = null
     ): Bitmap {
         val targetWidth = 1080
         val horizontalPad = 44f
@@ -190,11 +187,16 @@ object ImageUtils {
 
         val monoTextColor = getMonochromeTextColorInt(softBgColor)
 
-        // Full-bleed 16:9 photo dimensions (no outer border)
         val photoWidth = targetWidth
         val photoHeight = if (photo16by9 != null) (targetWidth * 9) / 16 else 0
 
-        // Monochrome typography paints for maximum legibility
+        val workplacePaint = TextPaint().apply {
+            color = monoTextColor
+            textSize = 32f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
         val titlePaint = TextPaint().apply {
             color = monoTextColor
             textSize = 42f
@@ -230,7 +232,6 @@ object ImageUtils {
             isAntiAlias = true
         }
 
-        // Build exact list of product names / varieties as typed in the form
         val rawNames = mutableListOf<String>()
         if (request.descripcion.isNotBlank()) {
             rawNames.add(request.descripcion.trim())
@@ -243,7 +244,9 @@ object ImageUtils {
             rawNames.addAll(extraVarieties)
         }
 
-        // Pre-build StaticLayouts to calculate exact dynamic height so no text is ever truncated
+        val workplaceLayout = workplaceName?.takeIf { it.isNotBlank() }?.let {
+            buildStaticLayout("Local: ${it.trim()}", workplacePaint, contentWidth)
+        }
         val titleLayout = buildStaticLayout(request.titulo, titlePaint, contentWidth)
         val nombreHeaderLayout = buildStaticLayout("Nombre Producto:", labelBoldPaint, contentWidth)
 
@@ -262,7 +265,455 @@ object ImageUtils {
             extraInfoLines.add(buildStaticLayout("Stock Anterior: $antStr   |   Recarga: $recStr", secondaryInfoPaint, contentWidth))
         }
 
-        // Build Price lines in the exact order required by each Request Type (1 vs 2-3 vs 4-5)
+        val priceLayouts = buildRequestPriceLayouts(request, priceBoldPaint, contentWidth)
+
+        var totalHeight = photoHeight + 36
+        if (workplaceLayout != null) {
+            totalHeight += workplaceLayout.height + 10
+        }
+        totalHeight += titleLayout.height + 16
+        totalHeight += nombreHeaderLayout.height + 10
+        for (bLayout in bulletLayouts) {
+            totalHeight += bLayout.height + 8
+        }
+        if (extraInfoLines.isNotEmpty()) {
+            totalHeight += 18
+            for (infoLayout in extraInfoLines) {
+                totalHeight += infoLayout.height + 8
+            }
+        }
+        totalHeight += 32
+        for (pLayout in priceLayouts) {
+            totalHeight += pLayout.height + 14
+        }
+        totalHeight += 40
+
+        val composite = Bitmap.createBitmap(targetWidth, totalHeight, Bitmap.Config.RGB_565)
+        val canvas = Canvas(composite)
+
+        val bgPaint = Paint().apply {
+            color = softBgColor
+            isAntiAlias = true
+        }
+        canvas.drawRect(0f, 0f, targetWidth.toFloat(), totalHeight.toFloat(), bgPaint)
+
+        var currentY = 0f
+
+        if (photo16by9 != null) {
+            val srcRect = Rect(0, 0, photo16by9.width, photo16by9.height)
+            val dstRect = Rect(0, 0, photoWidth, photoHeight)
+            val photoPaint = Paint().apply { isFilterBitmap = true }
+            canvas.drawBitmap(photo16by9, srcRect, dstRect, photoPaint)
+            currentY = photoHeight.toFloat()
+        }
+
+        currentY += 36f
+
+        if (workplaceLayout != null) {
+            drawStaticLayout(canvas, workplaceLayout, horizontalPad, currentY)
+            currentY += workplaceLayout.height + 10f
+        }
+
+        drawStaticLayout(canvas, titleLayout, horizontalPad, currentY)
+        currentY += titleLayout.height + 16f
+
+        drawStaticLayout(canvas, nombreHeaderLayout, horizontalPad, currentY)
+        currentY += nombreHeaderLayout.height + 10f
+
+        for (bLayout in bulletLayouts) {
+            drawStaticLayout(canvas, bLayout, horizontalPad, currentY)
+            currentY += bLayout.height + 8f
+        }
+
+        if (extraInfoLines.isNotEmpty()) {
+            currentY += 18f
+            for (infoLayout in extraInfoLines) {
+                drawStaticLayout(canvas, infoLayout, horizontalPad, currentY)
+                currentY += infoLayout.height + 8f
+            }
+        }
+
+        currentY += 32f
+
+        for (pLayout in priceLayouts) {
+            drawStaticLayout(canvas, pLayout, horizontalPad, currentY)
+            currentY += pLayout.height + 14f
+        }
+
+        return composite
+    }
+
+    /**
+     * Generates a strictly monochrome (white background #FFFFFF, black text #111111, black dividing lines #111111)
+     * rendered image of the Catalog (selected products or entire catalog), without requiring any camera or gallery photos.
+     * Uses the exact consultation/request layout structure.
+     */
+    fun generateMonochromeCatalogBitmap(
+        workplaceName: String,
+        products: List<Product>,
+        includeCodigo: Boolean = true,
+        includeCosto: Boolean = true,
+        includeVenta: Boolean = true,
+        includeMargen: Boolean = true
+    ): Bitmap {
+        val targetWidth = 1080
+        val horizontalPad = 44f
+        val contentWidth = (targetWidth - (horizontalPad * 2)).toInt()
+        val whiteColor = AndroidColor.WHITE
+        val blackColor = AndroidColor.parseColor("#111111")
+
+        val headerTitlePaint = TextPaint().apply {
+            color = blackColor
+            textSize = 42f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val subHeaderPaint = TextPaint().apply {
+            color = blackColor
+            textSize = 34f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val itemLabelPaint = TextPaint().apply {
+            color = blackColor
+            textSize = 36f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val itemNamePaint = TextPaint().apply {
+            color = blackColor
+            textSize = 38f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val itemDetailPaint = TextPaint().apply {
+            color = blackColor
+            textSize = 36f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val cleanWorkplace = workplaceName.trim().ifBlank { "Mi Local Comercial" }
+        val headerLayout = buildStaticLayout("CATÁLOGO DE PRECIOS - ${cleanWorkplace.uppercase()}", headerTitlePaint, contentWidth)
+        val countLayout = buildStaticLayout("Total de productos incluidos: ${products.size}", subHeaderPaint, contentWidth)
+
+        // Pre-build layouts per product block
+        val productBlocks = products.map { prod ->
+            val lines = mutableListOf<StaticLayout>()
+            lines.add(buildStaticLayout("Nombre Producto:", itemLabelPaint, contentWidth))
+            lines.add(buildStaticLayout("· ${prod.descripcion}", itemNamePaint, contentWidth))
+            if (includeCodigo) {
+                val cod = prod.codigo?.takeIf { it.isNotBlank() } ?: "Sin código"
+                lines.add(buildStaticLayout("Código: $cod", itemDetailPaint, contentWidth))
+            }
+            if (includeCosto) {
+                val costoStr = prod.precioCosto?.let { MathUtils.formatearGuaranies(it) } ?: "Pendiente"
+                lines.add(buildStaticLayout("Precio de Costo Gs.: $costoStr", itemDetailPaint, contentWidth))
+            }
+            if (includeVenta) {
+                val ventaStr = prod.precioVenta?.let { MathUtils.formatearGuaranies(it) } ?: "Pendiente"
+                val marginSuffix = if (includeMargen && prod.porcentajeRealRedondeado != null) {
+                    " (${prod.porcentajeRealRedondeado}%)"
+                } else ""
+                lines.add(buildStaticLayout("Precio de Venta Gs.: $ventaStr$marginSuffix", itemDetailPaint, contentWidth))
+            }
+            lines
+        }
+
+        var totalHeight = 40
+        totalHeight += headerLayout.height + 12
+        totalHeight += countLayout.height + 24
+        totalHeight += 16 // Top divider space
+        for (block in productBlocks) {
+            totalHeight += 18
+            for (line in block) {
+                totalHeight += line.height + 8
+            }
+            totalHeight += 22 // Divider + bottom spacing per product
+        }
+        totalHeight += 36
+
+        val safeHeight = totalHeight.coerceAtLeast(300)
+        val bitmap = Bitmap.createBitmap(targetWidth, safeHeight, Bitmap.Config.RGB_565)
+        val canvas = Canvas(bitmap)
+
+        val bgPaint = Paint().apply {
+            color = whiteColor
+            style = Paint.Style.FILL
+        }
+        canvas.drawRect(0f, 0f, targetWidth.toFloat(), safeHeight.toFloat(), bgPaint)
+
+        val dividerPaint = Paint().apply {
+            color = blackColor
+            strokeWidth = 3f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+
+        val thickDividerPaint = Paint().apply {
+            color = blackColor
+            strokeWidth = 5f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+
+        var currentY = 40f
+        drawStaticLayout(canvas, headerLayout, horizontalPad, currentY)
+        currentY += headerLayout.height + 12f
+
+        drawStaticLayout(canvas, countLayout, horizontalPad, currentY)
+        currentY += countLayout.height + 20f
+
+        canvas.drawLine(horizontalPad, currentY, targetWidth - horizontalPad, currentY, thickDividerPaint)
+        currentY += 16f
+
+        for (block in productBlocks) {
+            currentY += 14f
+            for (line in block) {
+                drawStaticLayout(canvas, line, horizontalPad, currentY)
+                currentY += line.height + 8f
+            }
+            currentY += 12f
+            canvas.drawLine(horizontalPad, currentY, targetWidth - horizontalPad, currentY, dividerPaint)
+            currentY += 10f
+        }
+
+        return bitmap
+    }
+
+    /**
+     * Generates a strictly monochrome (white background #FFFFFF, black text #111111, black dividing lines #111111)
+     * rendered image of the Request History (single or multiple PriceRequests), identical in text structure
+     * to price change requests/consultations.
+     */
+    fun generateMonochromeHistoryBitmap(
+        workplaceName: String,
+        requests: List<PriceRequest>
+    ): Bitmap {
+        val targetWidth = 1080
+        val horizontalPad = 44f
+        val contentWidth = (targetWidth - (horizontalPad * 2)).toInt()
+        val whiteColor = AndroidColor.WHITE
+        val blackColor = AndroidColor.parseColor("#111111")
+
+        val headerTitlePaint = TextPaint().apply {
+            color = blackColor
+            textSize = 42f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val subHeaderPaint = TextPaint().apply {
+            color = blackColor
+            textSize = 34f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val reqTitlePaint = TextPaint().apply {
+            color = blackColor
+            textSize = 38f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val itemLabelPaint = TextPaint().apply {
+            color = blackColor
+            textSize = 36f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val itemDetailPaint = TextPaint().apply {
+            color = blackColor
+            textSize = 36f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val cleanWorkplace = workplaceName.trim().ifBlank { "Mi Local Comercial" }
+        val headerTitle = if (requests.size == 1) {
+            "SOLICITUD DE PRECIO - ${cleanWorkplace.uppercase()}"
+        } else {
+            "HISTORIAL DE SOLICITUDES - ${cleanWorkplace.uppercase()}"
+        }
+        val headerLayout = buildStaticLayout(headerTitle, headerTitlePaint, contentWidth)
+        val countLayout = buildStaticLayout("Total de registros: ${requests.size}", subHeaderPaint, contentWidth)
+
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+
+        val requestBlocks = requests.map { req ->
+            val lines = mutableListOf<StaticLayout>()
+            val dateStr = dateFormat.format(Date(req.timestamp))
+            lines.add(buildStaticLayout("${req.titulo} ($dateStr)", reqTitlePaint, contentWidth))
+            lines.add(buildStaticLayout("Nombre Producto:", itemLabelPaint, contentWidth))
+            lines.add(buildStaticLayout("· ${req.descripcion}", itemDetailPaint, contentWidth))
+
+            if (!req.variedadesMismoCosto.isNullOrBlank()) {
+                req.variedadesMismoCosto.split("\n")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() && it != req.descripcion.trim() }
+                    .forEach { variety ->
+                        lines.add(buildStaticLayout("· $variety", itemDetailPaint, contentWidth))
+                    }
+            }
+
+            val code = req.codigoProducto?.takeIf { it.isNotBlank() } ?: req.codigo?.takeIf { it.isNotBlank() }
+            if (code != null) {
+                lines.add(buildStaticLayout("Código: $code", itemDetailPaint, contentWidth))
+            }
+
+            if (!req.stockAnterior.isNullOrBlank() || !req.recargaStock.isNullOrBlank()) {
+                val ant = req.stockAnterior?.takeIf { it.isNotBlank() } ?: "---"
+                val rec = req.recargaStock?.takeIf { it.isNotBlank() } ?: "---"
+                lines.add(buildStaticLayout("Stock Anterior: $ant   |   Recarga: $rec", itemDetailPaint, contentWidth))
+            }
+
+            lines.addAll(buildRequestPriceLayouts(req, itemDetailPaint, contentWidth))
+            lines
+        }
+
+        var totalHeight = 40
+        totalHeight += headerLayout.height + 12
+        totalHeight += countLayout.height + 24
+        totalHeight += 16
+        for (block in requestBlocks) {
+            totalHeight += 18
+            for (line in block) {
+                totalHeight += line.height + 8
+            }
+            totalHeight += 24
+        }
+        totalHeight += 36
+
+        val safeHeight = totalHeight.coerceAtLeast(300)
+        val bitmap = Bitmap.createBitmap(targetWidth, safeHeight, Bitmap.Config.RGB_565)
+        val canvas = Canvas(bitmap)
+
+        val bgPaint = Paint().apply {
+            color = whiteColor
+            style = Paint.Style.FILL
+        }
+        canvas.drawRect(0f, 0f, targetWidth.toFloat(), safeHeight.toFloat(), bgPaint)
+
+        val dividerPaint = Paint().apply {
+            color = blackColor
+            strokeWidth = 3f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+
+        val thickDividerPaint = Paint().apply {
+            color = blackColor
+            strokeWidth = 5f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+
+        var currentY = 40f
+        drawStaticLayout(canvas, headerLayout, horizontalPad, currentY)
+        currentY += headerLayout.height + 12f
+
+        drawStaticLayout(canvas, countLayout, horizontalPad, currentY)
+        currentY += countLayout.height + 20f
+
+        canvas.drawLine(horizontalPad, currentY, targetWidth - horizontalPad, currentY, thickDividerPaint)
+        currentY += 16f
+
+        for (block in requestBlocks) {
+            currentY += 14f
+            for (line in block) {
+                drawStaticLayout(canvas, line, horizontalPad, currentY)
+                currentY += line.height + 8f
+            }
+            currentY += 14f
+            canvas.drawLine(horizontalPad, currentY, targetWidth - horizontalPad, currentY, dividerPaint)
+            currentY += 10f
+        }
+
+        return bitmap
+    }
+
+    /**
+     * Builds a clean, emoji-free plain-text representation of the Request History with the custom workplace name.
+     */
+    fun buildHistoryPlainText(
+        workplaceName: String,
+        requests: List<PriceRequest>
+    ): String {
+        val cleanWorkplace = workplaceName.trim().ifBlank { "Mi Local Comercial" }
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val sb = StringBuilder()
+        sb.append("*HISTORIAL DE SOLICITUDES - ${cleanWorkplace.uppercase()}*\n")
+        sb.append("----------------------------------------\n")
+
+        for (req in requests) {
+            val dateStr = dateFormat.format(Date(req.timestamp))
+            sb.append("*${req.titulo}* ($dateStr)\n")
+            sb.append("Nombre Producto:\n")
+            sb.append("· ${req.descripcion}\n")
+
+            if (!req.variedadesMismoCosto.isNullOrBlank()) {
+                req.variedadesMismoCosto.split("\n")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() && it != req.descripcion.trim() }
+                    .forEach { variety ->
+                        sb.append("· $variety\n")
+                    }
+            }
+
+            val code = req.codigoProducto?.takeIf { it.isNotBlank() } ?: req.codigo?.takeIf { it.isNotBlank() }
+            if (code != null) {
+                sb.append("Código: $code\n")
+            }
+
+            if (!req.stockAnterior.isNullOrBlank() || !req.recargaStock.isNullOrBlank()) {
+                val ant = req.stockAnterior?.takeIf { it.isNotBlank() } ?: "---"
+                val rec = req.recargaStock?.takeIf { it.isNotBlank() } ?: "---"
+                sb.append("Stock Anterior: $ant | Recarga: $rec\n")
+            }
+
+            when (req.tipoId) {
+                2, 3 -> {
+                    val cAnt = req.precioCostoAnterior ?: req.precioCostoNuevo
+                    val vAnt = req.precioVentaAnterior ?: req.precioVentaNuevo
+                    val pAnt = req.porcentajeAnteriorRedondeado
+                        ?: MathUtils.calcularPorcentajeRedondeado(cAnt, vAnt)
+
+                    sb.append("Precio de Costo Anterior Gs.: ${MathUtils.formatearGuaranies(cAnt)}\n")
+                    sb.append("Precio de Costo Nuevo Gs.: ${MathUtils.formatearGuaranies(req.precioCostoNuevo)}\n")
+                    sb.append("Precio de Venta Anterior Gs.: ${MathUtils.formatearGuaranies(vAnt)} ($pAnt%)\n")
+                    sb.append("Precio de Venta Nuevo Gs.: ${MathUtils.formatearGuaranies(req.precioVentaNuevo)} (${req.porcentajeNuevoRedondeado}%)\n")
+                }
+                4, 5 -> {
+                    val vAnt = req.precioVentaAnterior ?: req.precioVentaNuevo
+                    val pAnt = req.porcentajeAnteriorRedondeado
+                        ?: MathUtils.calcularPorcentajeRedondeado(req.precioCostoNuevo, vAnt)
+
+                    sb.append("Precio de Costo Gs.: ${MathUtils.formatearGuaranies(req.precioCostoNuevo)}\n")
+                    sb.append("Precio de Venta Anterior Gs.: ${MathUtils.formatearGuaranies(vAnt)} ($pAnt%)\n")
+                    sb.append("Precio de Venta Nuevo Gs.: ${MathUtils.formatearGuaranies(req.precioVentaNuevo)} (${req.porcentajeNuevoRedondeado}%)\n")
+                }
+                else -> {
+                    sb.append("Precio de Costo Gs.: ${MathUtils.formatearGuaranies(req.precioCostoNuevo)}\n")
+                    sb.append("Precio de Venta Gs.: ${MathUtils.formatearGuaranies(req.precioVentaNuevo)} (${req.porcentajeNuevoRedondeado}%)\n")
+                }
+            }
+            sb.append("----------------------------------------\n")
+        }
+        sb.append("Total de solicitudes: ${requests.size}")
+        return sb.toString()
+    }
+
+    private fun buildRequestPriceLayouts(
+        request: PriceRequest,
+        priceBoldPaint: TextPaint,
+        contentWidth: Int
+    ): List<StaticLayout> {
         val priceLayouts = mutableListOf<StaticLayout>()
         when (request.tipoId) {
             1 -> {
@@ -359,83 +810,7 @@ object ImageUtils {
                 )
             }
         }
-
-        // Calculate total height dynamically without any outer border
-        var totalHeight = photoHeight + 36
-        totalHeight += titleLayout.height + 16
-        totalHeight += nombreHeaderLayout.height + 10
-        for (bLayout in bulletLayouts) {
-            totalHeight += bLayout.height + 8
-        }
-        if (extraInfoLines.isNotEmpty()) {
-            totalHeight += 18
-            for (infoLayout in extraInfoLines) {
-                totalHeight += infoLayout.height + 8
-            }
-        }
-        totalHeight += 32 // Space before prices
-        for (pLayout in priceLayouts) {
-            totalHeight += pLayout.height + 14
-        }
-        totalHeight += 40 // Bottom padding
-
-        // Use RGB_565 for 50% less RAM usage on low-end phones while keeping crisp text
-        val composite = Bitmap.createBitmap(targetWidth, totalHeight, Bitmap.Config.RGB_565)
-        val canvas = Canvas(composite)
-
-        // 1. Draw clean borderless background
-        val bgPaint = Paint().apply {
-            color = softBgColor
-            isAntiAlias = true
-        }
-        canvas.drawRect(0f, 0f, targetWidth.toFloat(), totalHeight.toFloat(), bgPaint)
-
-        var currentY = 0f
-
-        // 2. Draw full-width 16:9 Photo at the top with NO borders and NO HD badge
-        if (photo16by9 != null) {
-            val srcRect = Rect(0, 0, photo16by9.width, photo16by9.height)
-            val dstRect = Rect(0, 0, photoWidth, photoHeight)
-            val photoPaint = Paint().apply { isFilterBitmap = true }
-            canvas.drawBitmap(photo16by9, srcRect, dstRect, photoPaint)
-            currentY = photoHeight.toFloat()
-        }
-
-        currentY += 36f
-
-        // 3. Draw Request Title in monochrome text
-        drawStaticLayout(canvas, titleLayout, horizontalPad, currentY)
-        currentY += titleLayout.height + 16f
-
-        // 4. Draw "Nombre Producto:" Header
-        drawStaticLayout(canvas, nombreHeaderLayout, horizontalPad, currentY)
-        currentY += nombreHeaderLayout.height + 10f
-
-        // 5. Draw Bulleted List ("· ") of Product Names / Varieties exactly as written in the form
-        for (bLayout in bulletLayouts) {
-            drawStaticLayout(canvas, bLayout, horizontalPad, currentY)
-            currentY += bLayout.height + 8f
-        }
-
-        // 6. Draw Optional Code & Stock if present
-        if (extraInfoLines.isNotEmpty()) {
-            currentY += 18f
-            for (infoLayout in extraInfoLines) {
-                drawStaticLayout(canvas, infoLayout, horizontalPad, currentY)
-                currentY += infoLayout.height + 8f
-            }
-        }
-
-        // 7. Space before Prices
-        currentY += 32f
-
-        // 8. Draw Prices in exact order with monochrome bold text
-        for (pLayout in priceLayouts) {
-            drawStaticLayout(canvas, pLayout, horizontalPad, currentY)
-            currentY += pLayout.height + 14f
-        }
-
-        return composite
+        return priceLayouts
     }
 
     private fun buildStaticLayout(text: String, paint: TextPaint, width: Int): StaticLayout {
@@ -468,7 +843,6 @@ object ImageUtils {
             stream.flush()
             stream.close()
 
-            // Free native memory immediately on low-end devices
             bitmap.recycle()
 
             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -479,8 +853,7 @@ object ImageUtils {
     }
 
     /**
-     * Mandate Block 5: Sends ONLY the generated infographic image to WhatsApp
-     * without any Intent.EXTRA_TEXT accompanying it.
+     * Sends ONLY the generated image to WhatsApp without any Intent.EXTRA_TEXT accompanying it.
      */
     fun shareImageOnlyToWhatsApp(context: Context, imageUri: Uri) {
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -496,7 +869,7 @@ object ImageUtils {
         val launchIntent = if (whatsappIntent.resolveActivity(context.packageManager) != null) {
             whatsappIntent
         } else {
-            Intent.createChooser(intent, "Enviar ficha a WhatsApp")
+            Intent.createChooser(intent, "Enviar imagen por WhatsApp")
         }
 
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -504,7 +877,7 @@ object ImageUtils {
     }
 
     /**
-     * Share method for text catalog exports or single product sharing.
+     * Share method for text catalog or history exports.
      */
     fun shareTextToWhatsApp(context: Context, textContent: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -519,7 +892,7 @@ object ImageUtils {
         val launchIntent = if (whatsappIntent.resolveActivity(context.packageManager) != null) {
             whatsappIntent
         } else {
-            Intent.createChooser(intent, "Compartir producto por WhatsApp")
+            Intent.createChooser(intent, "Compartir texto por WhatsApp")
         }
 
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

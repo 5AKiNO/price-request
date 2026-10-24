@@ -32,9 +32,11 @@ class FastBinaryStore private constructor(context: Context) {
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val productsMutex = Mutex()
     private val requestsMutex = Mutex()
+    private val configMutex = Mutex()
 
-    private val productsFile = File(appContext.filesDir, "claudia_products_v1.bin")
-    private val requestsFile = File(appContext.filesDir, "claudia_requests_v1.bin")
+    private val productsFile = File(appContext.filesDir, "store_products_v1.bin")
+    private val requestsFile = File(appContext.filesDir, "store_requests_v1.bin")
+    private val configFile = File(appContext.filesDir, "store_config_v1.bin")
 
     private val _productsFlow = MutableStateFlow<List<Product>>(emptyList())
     val productsFlow: StateFlow<List<Product>> = _productsFlow.asStateFlow()
@@ -42,10 +44,26 @@ class FastBinaryStore private constructor(context: Context) {
     private val _requestsFlow = MutableStateFlow<List<PriceRequest>>(emptyList())
     val requestsFlow: StateFlow<List<PriceRequest>> = _requestsFlow.asStateFlow()
 
+    private val _workplaceNameFlow = MutableStateFlow(DEFAULT_WORKPLACE_NAME)
+    val workplaceNameFlow: StateFlow<String> = _workplaceNameFlow.asStateFlow()
+
     init {
         ioScope.launch {
+            _workplaceNameFlow.value = readWorkplaceNameFromDisk()
             _productsFlow.value = readProductsFromDisk()
             _requestsFlow.value = readRequestsFromDisk()
+        }
+    }
+
+    suspend fun saveWorkplaceName(newName: String) {
+        val cleaned = newName.trim().ifBlank { DEFAULT_WORKPLACE_NAME }
+        configMutex.withLock {
+            _workplaceNameFlow.value = cleaned
+        }
+        ioScope.launch {
+            configMutex.withLock {
+                writeWorkplaceNameToDisk(cleaned)
+            }
         }
     }
 
@@ -129,6 +147,35 @@ class FastBinaryStore private constructor(context: Context) {
         }
     }
 
+    private fun readWorkplaceNameFromDisk(): String {
+        if (!configFile.exists()) return DEFAULT_WORKPLACE_NAME
+        return try {
+            DataInputStream(BufferedInputStream(FileInputStream(configFile))).use { dis ->
+                val magic = dis.readInt()
+                if (magic != MAGIC_CONFIG) return DEFAULT_WORKPLACE_NAME
+                val name = dis.readUTF().trim()
+                name.ifBlank { DEFAULT_WORKPLACE_NAME }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            DEFAULT_WORKPLACE_NAME
+        }
+    }
+
+    private fun writeWorkplaceNameToDisk(workplaceName: String) {
+        try {
+            val tempFile = File(appContext.filesDir, "store_config_v1.tmp")
+            DataOutputStream(BufferedOutputStream(FileOutputStream(tempFile))).use { dos ->
+                dos.writeInt(MAGIC_CONFIG)
+                dos.writeUTF(workplaceName)
+                dos.flush()
+            }
+            tempFile.renameTo(configFile)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun readProductsFromDisk(): List<Product> {
         if (!productsFile.exists()) return emptyList()
         return try {
@@ -175,7 +222,7 @@ class FastBinaryStore private constructor(context: Context) {
 
     private fun writeProductsToDisk(products: List<Product>) {
         try {
-            val tempFile = File(appContext.filesDir, "claudia_products_v1.tmp")
+            val tempFile = File(appContext.filesDir, "store_products_v1.tmp")
             DataOutputStream(BufferedOutputStream(FileOutputStream(tempFile))).use { dos ->
                 dos.writeInt(MAGIC_PRODUCTS)
                 dos.writeInt(products.size)
@@ -264,7 +311,7 @@ class FastBinaryStore private constructor(context: Context) {
 
     private fun writeRequestsToDisk(requests: List<PriceRequest>) {
         try {
-            val tempFile = File(appContext.filesDir, "claudia_requests_v1.tmp")
+            val tempFile = File(appContext.filesDir, "store_requests_v1.tmp")
             DataOutputStream(BufferedOutputStream(FileOutputStream(tempFile))).use { dos ->
                 dos.writeInt(MAGIC_REQUESTS)
                 dos.writeInt(requests.size)
@@ -338,8 +385,10 @@ class FastBinaryStore private constructor(context: Context) {
     }
 
     companion object {
-        private const val MAGIC_PRODUCTS = 0x434C5031 // "CLP1"
-        private const val MAGIC_REQUESTS = 0x434C5231 // "CLR1"
+        const val DEFAULT_WORKPLACE_NAME = "Mi Local Comercial"
+        private const val MAGIC_PRODUCTS = 0x53545031 // "STP1"
+        private const val MAGIC_REQUESTS = 0x53545231 // "STR1"
+        private const val MAGIC_CONFIG = 0x53544331   // "STC1"
 
         @Volatile
         private var INSTANCE: FastBinaryStore? = null

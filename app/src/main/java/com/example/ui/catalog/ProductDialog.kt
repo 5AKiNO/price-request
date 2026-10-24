@@ -43,8 +43,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Product
-import com.example.ui.theme.ClaudiaBlueContainer
-import com.example.ui.theme.ClaudiaBluePrimary
+import com.example.ui.theme.BrandBlueContainer
+import com.example.ui.theme.BrandBluePrimary
 import com.example.ui.theme.Tipo1Verde
 import com.example.ui.theme.adaptiveTextFieldColors
 import com.example.ui.theme.getContrastingTextColor
@@ -67,7 +67,7 @@ fun ProductDialog(
     val dialogTextColor = getContrastingTextColor(dialogBg)
     val textFieldColors = adaptiveTextFieldColors(
         containerColor = dialogBg,
-        borderColor = ClaudiaBluePrimary
+        borderColor = BrandBluePrimary
     )
 
     val calculatedMargin = remember(costoText, ventaText) {
@@ -220,7 +220,7 @@ fun ProductDialog(
                 ) {
                     listOf(20, 25, 30, 40, 50).forEach { pct ->
                         val isSelected = (calculatedMargin ?: porcentajeSeleccionado) == pct
-                        val chipBg = if (isSelected) ClaudiaBluePrimary else ClaudiaBlueContainer
+                        val chipBg = if (isSelected) BrandBluePrimary else BrandBlueContainer
                         val chipText = getContrastingTextColor(chipBg)
                         FilterChip(
                             selected = isSelected,
@@ -236,16 +236,16 @@ fun ProductDialog(
                                 { Icon(Icons.Default.Check, contentDescription = null, tint = chipText) }
                             } else null,
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = ClaudiaBluePrimary,
-                                selectedLabelColor = getContrastingTextColor(ClaudiaBluePrimary),
-                                containerColor = ClaudiaBlueContainer,
-                                labelColor = getContrastingTextColor(ClaudiaBlueContainer)
+                                selectedContainerColor = BrandBluePrimary,
+                                selectedLabelColor = getContrastingTextColor(BrandBluePrimary),
+                                containerColor = BrandBlueContainer,
+                                labelColor = getContrastingTextColor(BrandBlueContainer)
                             ),
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = isSelected,
-                                borderColor = ClaudiaBluePrimary,
-                                selectedBorderColor = ClaudiaBluePrimary,
+                                borderColor = BrandBluePrimary,
+                                selectedBorderColor = BrandBluePrimary,
                                 borderWidth = 1.5.dp,
                                 selectedBorderWidth = 2.dp
                             )
@@ -281,11 +281,11 @@ fun ProductDialog(
 
                 // Card resumen de margen calculado con contraste según su fondo
                 if (calculatedMargin != null) {
-                    val summaryBg = ClaudiaBlueContainer
+                    val summaryBg = BrandBlueContainer
                     val summaryText = getContrastingTextColor(summaryBg)
                     Card(
                         colors = CardDefaults.cardColors(containerColor = summaryBg),
-                        border = BorderStroke(1.5.dp, ClaudiaBluePrimary),
+                        border = BorderStroke(1.5.dp, BrandBluePrimary),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -330,13 +330,13 @@ fun ProductDialog(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, tint = shareBtnText, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Guardar y Compartir por WhatsApp", color = shareBtnText, fontWeight = FontWeight.Bold)
+                        Text("Guardar y Compartir (TXT o Imagen)", color = shareBtnText, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         },
         confirmButton = {
-            val saveBtnBg = ClaudiaBluePrimary
+            val saveBtnBg = BrandBluePrimary
             val saveBtnText = getContrastingTextColor(saveBtnBg)
             Button(
                 onClick = {
@@ -356,7 +356,7 @@ fun ProductDialog(
         dismissButton = {
             OutlinedButton(
                 onClick = onDismiss,
-                border = BorderStroke(1.5.dp, ClaudiaBluePrimary)
+                border = BorderStroke(1.5.dp, BrandBluePrimary)
             ) {
                 Text("Cancelar", color = dialogTextColor, fontWeight = FontWeight.Bold)
             }

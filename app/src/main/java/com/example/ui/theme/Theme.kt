@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = ClaudiaBlueDarkPrimary,
+    primary = BrandBlueDarkPrimary,
     onPrimary = Color(0xFF111111),
     primaryContainer = Color(0xFF00497D),
     onPrimaryContainer = Color.White,
@@ -35,9 +35,9 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = ClaudiaBluePrimary,
+    primary = BrandBluePrimary,
     onPrimary = Color.White,
-    primaryContainer = ClaudiaBlueContainer,
+    primaryContainer = BrandBlueContainer,
     onPrimaryContainer = Color(0xFF111111),
     secondary = PriceDropOrange,
     onSecondary = Color.White,
@@ -61,7 +61,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun adaptiveTextFieldColors(
     containerColor: Color = MaterialTheme.colorScheme.surface,
-    borderColor: Color = ClaudiaBluePrimary
+    borderColor: Color = BrandBluePrimary
 ): TextFieldColors {
     val textColor = getContrastingTextColor(containerColor)
     val placeholderColor = textColor.copy(alpha = 0.7f)
@@ -94,7 +94,7 @@ fun adaptiveTextFieldColors(
 }
 
 @Composable
-fun AutoservicioClaudiaTheme(
+fun AppPricingTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
@@ -105,7 +105,7 @@ fun AutoservicioClaudiaTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
-                window.statusBarColor = ClaudiaBluePrimary.toArgb()
+                window.statusBarColor = BrandBluePrimary.toArgb()
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
             }
         }

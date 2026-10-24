@@ -3,11 +3,11 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 
-// Brand Colors for Autoservicio Claudia
-val ClaudiaBluePrimary = Color(0xFF0D47A1)
-val ClaudiaBlueSecondary = Color(0xFF1565C0)
-val ClaudiaBlueContainer = Color(0xFFE3F2FD)
-val ClaudiaOnBlueContainer = Color(0xFF0D47A1)
+// Brand Colors for Pricing & Inventory System
+val BrandBluePrimary = Color(0xFF0D47A1)
+val BrandBlueSecondary = Color(0xFF1565C0)
+val BrandBlueContainer = Color(0xFFE3F2FD)
+val BrandOnBlueContainer = Color(0xFF0D47A1)
 
 // Sistema de 5 Colores Distintivos de Alta Legibilidad (Sin Lila):
 // 1. Falta Registrar: Verde Esmeralda Oscuro
@@ -52,8 +52,8 @@ val SuccessGreen = Color(0xFF1B5E20)
 val SuccessBg = Color(0xFFE8F5E9)
 
 // Dark Palette
-val ClaudiaBlueDarkPrimary = Color(0xFF90CAF9)
-val ClaudiaBlueDarkSecondary = Color(0xFF64B5F6)
+val BrandBlueDarkPrimary = Color(0xFF90CAF9)
+val BrandBlueDarkSecondary = Color(0xFF64B5F6)
 val SurfaceDark = Color(0xFF121316)
 val SurfaceDarkCard = Color(0xFF1E2024)
 val TextDarkPrimary = Color(0xFFE2E2E6)
@@ -66,7 +66,7 @@ fun getRequestTypeColor(tipoId: Int): Color {
         3 -> Tipo3Naranja
         4 -> Tipo4Teal
         5 -> Tipo5Rojo
-        else -> ClaudiaBluePrimary
+        else -> BrandBluePrimary
     }
 }
 
@@ -77,7 +77,7 @@ fun getRequestTypeContainerColor(tipoId: Int): Color {
         3 -> Tipo3NaranjaContainer
         4 -> Tipo4TealContainer
         5 -> Tipo5RojoContainer
-        else -> ClaudiaBlueContainer
+        else -> BrandBlueContainer
     }
 }
 

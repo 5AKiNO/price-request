@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.ui.theme.ClaudiaBluePrimary
+import com.example.ui.theme.BrandBluePrimary
 import com.example.ui.theme.getContrastingTextColor
 import com.example.util.ImageUtils
 import kotlin.math.min
@@ -104,7 +104,7 @@ fun Crop169Dialog(
     val dialogTextColor = getContrastingTextColor(dialogBg)
     val panelBg = Color(0xFF1E2024)
     val panelTextColor = getContrastingTextColor(panelBg)
-    val confirmBtnBg = ClaudiaBluePrimary
+    val confirmBtnBg = BrandBluePrimary
     val confirmBtnText = getContrastingTextColor(confirmBtnBg)
 
     Dialog(

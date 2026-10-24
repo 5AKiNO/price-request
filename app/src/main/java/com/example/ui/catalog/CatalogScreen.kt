@@ -23,11 +23,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -41,9 +44,11 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,14 +61,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Product
-import com.example.ui.theme.ClaudiaBlueContainer
-import com.example.ui.theme.ClaudiaBluePrimary
+import com.example.ui.theme.BrandBlueContainer
+import com.example.ui.theme.BrandBluePrimary
 import com.example.ui.theme.PriceDropBg
 import com.example.ui.theme.PriceDropOrange
 import com.example.ui.theme.PriceIncreaseBg
@@ -71,7 +75,6 @@ import com.example.ui.theme.PriceIncreaseBlue
 import com.example.ui.theme.Tipo1Verde
 import com.example.ui.theme.adaptiveTextFieldColors
 import com.example.ui.theme.getContrastingTextColor
-import com.example.util.ImageUtils
 import com.example.util.MathUtils
 
 @Composable
@@ -80,7 +83,6 @@ fun CatalogScreen(
     modifier: Modifier = Modifier,
     onNavigateToNewRequestWithProduct: ((Product) -> Unit)? = null
 ) {
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     var showOptionsMenu by remember { mutableStateOf(false) }
 
@@ -105,17 +107,6 @@ fun CatalogScreen(
         androidx.compose.runtime.derivedStateOf { uiState.selectedProductIds.size }
     }
 
-    fun shareSingleProduct(product: Product) {
-        val text = viewModel.buildWhatsAppPlainText(
-            selectedProducts = listOf(product),
-            includeCodigo = true,
-            includeCosto = true,
-            includeVenta = true,
-            includeMargen = true
-        )
-        ImageUtils.shareTextToWhatsApp(context, text)
-    }
-
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -124,7 +115,7 @@ fun CatalogScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Buscador Rápido Reactivo
+            // Buscador Rápido Reactivo + Menú de Opciones del Catálogo
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -153,7 +144,7 @@ fun CatalogScreen(
                     shape = RoundedCornerShape(16.dp),
                     colors = adaptiveTextFieldColors(
                         containerColor = surfaceBg,
-                        borderColor = ClaudiaBluePrimary
+                        borderColor = BrandBluePrimary
                     ),
                     singleLine = true,
                     modifier = Modifier
@@ -163,7 +154,9 @@ fun CatalogScreen(
 
                 IconButton(
                     onClick = { showOptionsMenu = true },
-                    modifier = Modifier.padding(start = 4.dp)
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .testTag("catalog_options_menu_button")
                 ) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Opciones", tint = screenTextColor)
                 }
@@ -173,6 +166,49 @@ fun CatalogScreen(
                     onDismissRequest = { showOptionsMenu = false },
                     containerColor = surfaceBg
                 ) {
+                    DropdownMenuItem(
+                        leadingIcon = {
+                            Icon(Icons.Default.Storefront, contentDescription = null, tint = surfaceTextColor)
+                        },
+                        text = {
+                            Column {
+                                Text(
+                                    "Configurar nombre del local",
+                                    color = surfaceTextColor,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Actual: ${uiState.workplaceName}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = surfaceTextColor
+                                )
+                            }
+                        },
+                        onClick = {
+                            showOptionsMenu = false
+                            viewModel.openWorkplaceDialog()
+                        },
+                        modifier = Modifier.testTag("menu_configure_workplace")
+                    )
+                    HorizontalDivider(color = surfaceTextColor.copy(alpha = 0.2f))
+                    DropdownMenuItem(
+                        leadingIcon = {
+                            Icon(Icons.Default.Share, contentDescription = null, tint = surfaceTextColor)
+                        },
+                        text = {
+                            Text(
+                                "Enviar todo el catálogo (TXT o Imagen)",
+                                color = surfaceTextColor,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        },
+                        onClick = {
+                            showOptionsMenu = false
+                            viewModel.openExportDialogForAll()
+                        },
+                        modifier = Modifier.testTag("menu_export_all_catalog")
+                    )
+                    HorizontalDivider(color = surfaceTextColor.copy(alpha = 0.2f))
                     DropdownMenuItem(
                         text = {
                             Text(
@@ -216,7 +252,7 @@ fun CatalogScreen(
                     contentType = { "filter_chip" }
                 ) { filter ->
                     val isSelected = uiState.activeFilter == filter
-                    val chipBg = if (isSelected) ClaudiaBluePrimary else ClaudiaBlueContainer
+                    val chipBg = if (isSelected) BrandBluePrimary else BrandBlueContainer
                     val chipTextColor = getContrastingTextColor(chipBg)
                     FilterChip(
                         selected = isSelected,
@@ -237,16 +273,16 @@ fun CatalogScreen(
                             { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = chipTextColor) }
                         } else null,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = ClaudiaBluePrimary,
-                            selectedLabelColor = getContrastingTextColor(ClaudiaBluePrimary),
-                            containerColor = ClaudiaBlueContainer,
-                            labelColor = getContrastingTextColor(ClaudiaBlueContainer)
+                            selectedContainerColor = BrandBluePrimary,
+                            selectedLabelColor = getContrastingTextColor(BrandBluePrimary),
+                            containerColor = BrandBlueContainer,
+                            labelColor = getContrastingTextColor(BrandBlueContainer)
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = isSelected,
-                            borderColor = ClaudiaBluePrimary,
-                            selectedBorderColor = ClaudiaBluePrimary,
+                            borderColor = BrandBluePrimary,
+                            selectedBorderColor = BrandBluePrimary,
                             borderWidth = 1.5.dp,
                             selectedBorderWidth = 2.dp
                         ),
@@ -282,14 +318,14 @@ fun CatalogScreen(
                             isSelected = isSelected,
                             onToggleSelect = { viewModel.toggleProductSelection(product.id) },
                             onEdit = { viewModel.openEditProductForm(product) },
-                            onShare = { shareSingleProduct(product) }
+                            onShare = { viewModel.openSingleProductExport(product) }
                         )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Encabezado de Lista Principal
+            // Encabezado de Lista Principal + Botón directo para enviar catálogo
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -303,21 +339,54 @@ fun CatalogScreen(
                     fontWeight = FontWeight.Bold,
                     color = screenTextColor
                 )
-                if (selectedCount > 0) {
-                    val badgeBg = ClaudiaBlueContainer
-                    val badgeTextColor = getContrastingTextColor(badgeBg)
-                    Surface(
-                        color = badgeBg,
-                        border = BorderStroke(1.5.dp, ClaudiaBluePrimary),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = "$selectedCount seleccionados",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = badgeTextColor,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (selectedCount > 0) {
+                        val badgeBg = BrandBlueContainer
+                        val badgeTextColor = getContrastingTextColor(badgeBg)
+                        Surface(
+                            color = badgeBg,
+                            border = BorderStroke(1.5.dp, BrandBluePrimary),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "$selectedCount seleccionados",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = badgeTextColor,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    if (uiState.filteredProducts.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                if (selectedCount > 0) {
+                                    viewModel.openExportDialog()
+                                } else {
+                                    viewModel.openExportDialogForAll()
+                                }
+                            },
+                            border = BorderStroke(1.5.dp, BrandBluePrimary),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.testTag("catalog_button_export_header")
+                        ) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = null,
+                                tint = screenTextColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (selectedCount > 0) "Enviar ($selectedCount)" else "Enviar Catálogo",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = screenTextColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -345,7 +414,7 @@ fun CatalogScreen(
                             color = screenTextColor
                         )
                         if (uiState.allProducts.isEmpty()) {
-                            val btnBg = ClaudiaBluePrimary
+                            val btnBg = BrandBluePrimary
                             val btnText = getContrastingTextColor(btnBg)
                             Button(
                                 onClick = { viewModel.openNewProductForm() },
@@ -381,7 +450,7 @@ fun CatalogScreen(
                             onToggleSelect = { viewModel.toggleProductSelection(product.id) },
                             onEdit = { viewModel.openEditProductForm(product) },
                             onDelete = { viewModel.deleteProduct(product) },
-                            onShareProduct = { shareSingleProduct(product) },
+                            onShareProduct = { viewModel.openSingleProductExport(product) },
                             onRequestPriceChange = onNavigateToNewRequestWithProduct?.let {
                                 { it(product) }
                             }
@@ -405,14 +474,14 @@ fun CatalogScreen(
                 ExtendedFloatingActionButton(
                     onClick = { viewModel.openExportDialog() },
                     icon = { Icon(Icons.Default.Share, contentDescription = null, tint = waFabText) },
-                    text = { Text("WhatsApp (${uiState.selectedProductIds.size})", color = waFabText, fontWeight = FontWeight.Bold) },
+                    text = { Text("Enviar (${uiState.selectedProductIds.size})", color = waFabText, fontWeight = FontWeight.Bold) },
                     containerColor = waFabBg,
                     contentColor = waFabText,
                     modifier = Modifier.testTag("catalog_fab_whatsapp")
                 )
             }
 
-            val addFabBg = ClaudiaBluePrimary
+            val addFabBg = BrandBluePrimary
             val addFabText = getContrastingTextColor(addFabBg)
             FloatingActionButton(
                 onClick = { viewModel.openNewProductForm() },
@@ -447,22 +516,115 @@ fun CatalogScreen(
                     porcentajeRealRedondeado = roundedMargin
                 )
                 viewModel.saveProduct(tempProd.id, cod, desc, c, v, p)
-                shareSingleProduct(tempProd)
+                viewModel.openSingleProductExport(tempProd)
             }
         )
     }
 
-    // Modal Exportación WhatsApp
+    // Modal Exportación Catálogo (Texto Plano TXT o Imagen Render Monocroma)
     if (uiState.isExportDialogOpen) {
-        val selectedItems = uiState.allProducts.filter { uiState.selectedProductIds.contains(it.id) }
+        val exportList = uiState.exportTargetProducts.ifEmpty {
+            uiState.allProducts.filter { uiState.selectedProductIds.contains(it.id) }
+        }
         WhatsAppExportDialog(
-            selectedProducts = selectedItems,
+            workplaceName = uiState.workplaceName,
+            selectedProducts = exportList,
             onDismiss = { viewModel.closeExportDialog() },
             buildTextFunction = { list, cod, cst, vnt, mrg ->
                 viewModel.buildWhatsAppPlainText(list, cod, cst, vnt, mrg)
             }
         )
     }
+
+    // Modal para personalizar a voluntad el nombre del sitio o local de trabajo
+    if (uiState.isWorkplaceDialogOpen) {
+        WorkplaceNameDialog(
+            currentName = uiState.workplaceName,
+            onDismiss = { viewModel.closeWorkplaceDialog() },
+            onSave = { newName -> viewModel.saveWorkplaceName(newName) }
+        )
+    }
+}
+
+@Composable
+fun WorkplaceNameDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var nameInput by remember(currentName) { mutableStateOf(currentName) }
+    val dialogBg = MaterialTheme.colorScheme.surface
+    val dialogTextColor = getContrastingTextColor(dialogBg)
+    val fieldColors = adaptiveTextFieldColors(
+        containerColor = dialogBg,
+        borderColor = BrandBluePrimary
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = dialogBg,
+        titleContentColor = dialogTextColor,
+        textContentColor = dialogTextColor,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Configurar Nombre del Local",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = dialogTextColor
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = dialogTextColor)
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Personaliza el nombre de tu sitio o local de trabajo. Este nombre aparecerá en el encabezado de la aplicación y en todas las exportaciones de catálogo e historial.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = dialogTextColor
+                )
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    label = { Text("Nombre del local o comercio *", color = dialogTextColor) },
+                    placeholder = { Text("Ej: Mi Local Comercial", color = dialogTextColor) },
+                    colors = fieldColors,
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("workplace_name_input")
+                )
+            }
+        },
+        confirmButton = {
+            val saveBg = BrandBluePrimary
+            val saveText = getContrastingTextColor(saveBg)
+            Button(
+                onClick = { onSave(nameInput) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = saveBg,
+                    contentColor = saveText
+                ),
+                modifier = Modifier.testTag("workplace_name_save_button")
+            ) {
+                Text("Guardar Nombre", color = saveText, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                border = BorderStroke(1.5.dp, BrandBluePrimary)
+            ) {
+                Text("Cancelar", color = dialogTextColor, fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }
 
 @Composable
@@ -473,7 +635,7 @@ fun QuickProductCard(
     onEdit: () -> Unit,
     onShare: () -> Unit
 ) {
-    val cardBg = if (isSelected) ClaudiaBlueContainer else MaterialTheme.colorScheme.surface
+    val cardBg = if (isSelected) BrandBlueContainer else MaterialTheme.colorScheme.surface
     val cardTextColor = getContrastingTextColor(cardBg)
 
     ElevatedCard(
@@ -585,7 +747,7 @@ fun ProductListItem(
     onShareProduct: () -> Unit,
     onRequestPriceChange: (() -> Unit)?
 ) {
-    val cardBg = if (isSelected) ClaudiaBlueContainer else MaterialTheme.colorScheme.surface
+    val cardBg = if (isSelected) BrandBlueContainer else MaterialTheme.colorScheme.surface
     val textColor = getContrastingTextColor(cardBg)
 
     Card(
@@ -595,7 +757,7 @@ fun ProductListItem(
         colors = CardDefaults.cardColors(containerColor = cardBg),
         border = BorderStroke(
             width = if (isSelected) 2.dp else 1.5.dp,
-            color = ClaudiaBluePrimary
+            color = BrandBluePrimary
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -608,8 +770,8 @@ fun ProductListItem(
                     checked = isSelected,
                     onCheckedChange = { onToggleSelect() },
                     colors = CheckboxDefaults.colors(
-                        checkedColor = ClaudiaBluePrimary,
-                        checkmarkColor = getContrastingTextColor(ClaudiaBluePrimary),
+                        checkedColor = BrandBluePrimary,
+                        checkmarkColor = getContrastingTextColor(BrandBluePrimary),
                         uncheckedColor = textColor
                     ),
                     modifier = Modifier.testTag("product_check_${product.id}")
@@ -622,11 +784,11 @@ fun ProductListItem(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val cod = product.codigo ?: "Sin Código"
-                        val codeBadgeBg = ClaudiaBlueContainer
+                        val codeBadgeBg = BrandBlueContainer
                         val codeBadgeText = getContrastingTextColor(codeBadgeBg)
                         Surface(
                             color = codeBadgeBg,
-                            border = BorderStroke(1.dp, ClaudiaBluePrimary),
+                            border = BorderStroke(1.dp, BrandBluePrimary),
                             shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
@@ -675,7 +837,7 @@ fun ProductListItem(
                     ) {
                         Icon(
                             Icons.Default.Share,
-                            contentDescription = "Compartir producto por WhatsApp",
+                            contentDescription = "Compartir producto",
                             tint = textColor
                         )
                     }
