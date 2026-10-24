@@ -1,0 +1,6 @@
+{
+  "name": "Autoservicio Claudia",
+  "description": "Catálogo y Gestor de Precios para Autoservicio Claudia con soporte en Guaraníes, cálculo de márgenes y solicitudes 16:9 para WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
