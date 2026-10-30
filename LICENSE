@@ -1,0 +1,55 @@
+LICENCIA DE CÓDIGO DISPONIBLE PARA USO ESTRICTAMENTE NO COMERCIAL
+Versión 1.0 — Todos los derechos comerciales reservados
+
+Copyright (c) 2024-2026 Autor y Titular del Proyecto "Sistema de Precios".
+Todos los derechos no concedidos expresamente en esta licencia quedan reservados.
+
+1. DEFINICIONES
+- "El Software" hace referencia al código fuente, archivos de configuración,
+  especificaciones de formatos binarios (.bin), diseño de interfaz, documentación
+  y binarios ejecutables (APK/AAB) contenidos o derivados de este repositorio.
+- "Uso Comercial" significa cualquier uso, reproducción, modificación, distribución
+  o ejecución de El Software que tenga por objeto o resultado la obtención directa
+  o indirecta de ingresos económicos, compensación monetaria, ventaja comercial
+  empresarial o contraprestación de cualquier naturaleza.
+
+2. CONCESIÓN DE LICENCIA NO COMERCIAL
+Sujeto al cumplimiento estricto de los términos de esta licencia, el Titular otorga
+una licencia gratuita, no exclusiva, revocable e intransferible para:
+a) Consultar, estudiar y auditar el código fuente con fines educativos, académicos
+   o de investigación personal.
+b) Compilar y ejecutar El Software para uso personal y privado sin fines de lucro.
+c) Proponer mejoras (Pull Requests) de vuelta a este repositorio oficial.
+
+3. RESTRICCIONES EXPRESAS (PROHIBICIÓN DE LUCRO POR TERCEROS)
+Queda ESTRICTAMENTE PROHIBIDO a cualquier usuario, organización o tercero:
+a) Vender, revender, alquilar, arrendar, sublicenciar o cobrar por El Software,
+   ya sea en su forma original, compilada (APK/AAB) o modificada.
+b) Ofrecer El Software como parte de un servicio alojado, plataforma comercial
+   (SaaS), consultoría remunerada, instalación cobrada a comercios o soporte
+   técnico facturado a terceros.
+c) Publicar El Software o trabajos derivados en tiendas de aplicaciones (como
+   Google Play Store, AppGallery, Amazon Appstore u otras) bajo cuentas de
+   terceros, con o sin publicidad, compras integradas o suscripciones.
+d) Integrar total o parcialmente el código fuente, el motor binario
+   (FastBinaryStore) o los componentes gráficos (FastComponents) dentro de
+   productos privativos o comerciales de terceros.
+
+4. CONSERVACIÓN DE AVISOS Y ATRIBUCIÓN
+Toda copia autorizada para uso no comercial deberá conservar íntegramente este
+archivo de licencia y los avisos de autoría originales en todos los archivos
+de código y documentación.
+
+5. TERMINACIÓN AUTOMÁTICA
+El incumplimiento de cualquiera de las cláusulas de esta licencia, en especial
+la prohibición de Uso Comercial descrita en la Sección 3, extinguirá de forma
+inmediata y automática todos los permisos concedidos sin necesidad de aviso
+previo, habilitando al Titular a ejercer las acciones legales y reclamos de
+propiedad intelectual que correspondan.
+
+6. EXCLUSIÓN DE GARANTÍAS Y LIMITACIÓN DE RESPONSABILIDAD
+EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O
+IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A GARANTÍAS DE COMERCIABILIDAD, IDONEIDAD
+PARA UN PROPÓSITO PARTICULAR E INEXISTENCIA DE INFRACCIÓN. EN NINGÚN CASO EL
+AUTOR O TITULAR SERÁ RESPONSABLE DE NINGÚN RECLAMO, DAÑO U OTRA RESPONSABILIDAD
+DERIVADA DEL USO O IMPOSIBILIDAD DE USO DE EL SOFTWARE.
