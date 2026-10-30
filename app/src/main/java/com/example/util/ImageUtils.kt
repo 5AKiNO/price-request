@@ -28,6 +28,8 @@ import kotlin.math.roundToInt
 
 object ImageUtils {
 
+    private val TYPEFACE_BOLD: Typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+
     /**
      * Decodes and downsamples a Bitmap from URI to fit strictly within 1280x720 (HD)
      * to prevent OutOfMemoryError on low-end devices (1GB - 3GB RAM).
@@ -53,6 +55,8 @@ object ImageUtils {
             val decodeOptions = BitmapFactory.Options().apply {
                 inSampleSize = sampleSize
                 inPreferredConfig = Bitmap.Config.RGB_565
+                inMutable = false
+                inScaled = false
             }
             val rawBitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, decodeOptions)
@@ -193,55 +197,43 @@ object ImageUtils {
         val workplacePaint = TextPaint().apply {
             color = monoTextColor
             textSize = 32f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val titlePaint = TextPaint().apply {
             color = monoTextColor
             textSize = 42f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val labelBoldPaint = TextPaint().apply {
             color = monoTextColor
             textSize = 40f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val bulletItemPaint = TextPaint().apply {
             color = monoTextColor
             textSize = 40f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val secondaryInfoPaint = TextPaint().apply {
             color = monoTextColor
             textSize = 36f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val priceBoldPaint = TextPaint().apply {
             color = monoTextColor
             textSize = 42f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
-        }
-
-        val rawNames = mutableListOf<String>()
-        if (request.descripcion.isNotBlank()) {
-            rawNames.add(request.descripcion.trim())
-        }
-        if (!request.variedadesMismoCosto.isNullOrBlank()) {
-            val extraVarieties = request.variedadesMismoCosto
-                .split("\n")
-                .map { it.trim() }
-                .filter { it.isNotEmpty() && !rawNames.contains(it) }
-            rawNames.addAll(extraVarieties)
         }
 
         val workplaceLayout = workplaceName?.takeIf { it.isNotBlank() }?.let {
@@ -250,19 +242,14 @@ object ImageUtils {
         val titleLayout = buildStaticLayout(request.titulo, titlePaint, contentWidth)
         val nombreHeaderLayout = buildStaticLayout("Nombre Producto:", labelBoldPaint, contentWidth)
 
-        val bulletLayouts = rawNames.map { itemText ->
+        val bulletLayouts = request.lineasProductosFormateadas.map { itemText ->
             buildStaticLayout("· $itemText", bulletItemPaint, contentWidth)
         }
 
         val extraInfoLines = mutableListOf<StaticLayout>()
-        val codeVal = request.codigoProducto?.takeIf { it.isNotBlank() } ?: request.codigo?.takeIf { it.isNotBlank() }
+        val codeVal = request.codigoEfectivo
         if (codeVal != null) {
             extraInfoLines.add(buildStaticLayout("Código: $codeVal", secondaryInfoPaint, contentWidth))
-        }
-        if (!request.stockAnterior.isNullOrBlank() || !request.recargaStock.isNullOrBlank()) {
-            val antStr = request.stockAnterior?.takeIf { it.isNotBlank() } ?: "---"
-            val recStr = request.recargaStock?.takeIf { it.isNotBlank() } ?: "---"
-            extraInfoLines.add(buildStaticLayout("Stock Anterior: $antStr   |   Recarga: $recStr", secondaryInfoPaint, contentWidth))
         }
 
         val priceLayouts = buildRequestPriceLayouts(request, priceBoldPaint, contentWidth)
@@ -365,35 +352,35 @@ object ImageUtils {
         val headerTitlePaint = TextPaint().apply {
             color = blackColor
             textSize = 42f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val subHeaderPaint = TextPaint().apply {
             color = blackColor
             textSize = 34f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val itemLabelPaint = TextPaint().apply {
             color = blackColor
             textSize = 36f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val itemNamePaint = TextPaint().apply {
             color = blackColor
             textSize = 38f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val itemDetailPaint = TextPaint().apply {
             color = blackColor
             textSize = 36f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
@@ -503,35 +490,35 @@ object ImageUtils {
         val headerTitlePaint = TextPaint().apply {
             color = blackColor
             textSize = 42f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val subHeaderPaint = TextPaint().apply {
             color = blackColor
             textSize = 34f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val reqTitlePaint = TextPaint().apply {
             color = blackColor
             textSize = 38f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val itemLabelPaint = TextPaint().apply {
             color = blackColor
             textSize = 36f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
         val itemDetailPaint = TextPaint().apply {
             color = blackColor
             textSize = 36f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = TYPEFACE_BOLD
             isAntiAlias = true
         }
 
@@ -551,26 +538,14 @@ object ImageUtils {
             val dateStr = dateFormat.format(Date(req.timestamp))
             lines.add(buildStaticLayout("${req.titulo} ($dateStr)", reqTitlePaint, contentWidth))
             lines.add(buildStaticLayout("Nombre Producto:", itemLabelPaint, contentWidth))
-            lines.add(buildStaticLayout("· ${req.descripcion}", itemDetailPaint, contentWidth))
 
-            if (!req.variedadesMismoCosto.isNullOrBlank()) {
-                req.variedadesMismoCosto.split("\n")
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() && it != req.descripcion.trim() }
-                    .forEach { variety ->
-                        lines.add(buildStaticLayout("· $variety", itemDetailPaint, contentWidth))
-                    }
+            req.lineasProductosFormateadas.forEach { itemLine ->
+                lines.add(buildStaticLayout("· $itemLine", itemDetailPaint, contentWidth))
             }
 
-            val code = req.codigoProducto?.takeIf { it.isNotBlank() } ?: req.codigo?.takeIf { it.isNotBlank() }
+            val code = req.codigoEfectivo
             if (code != null) {
                 lines.add(buildStaticLayout("Código: $code", itemDetailPaint, contentWidth))
-            }
-
-            if (!req.stockAnterior.isNullOrBlank() || !req.recargaStock.isNullOrBlank()) {
-                val ant = req.stockAnterior?.takeIf { it.isNotBlank() } ?: "---"
-                val rec = req.recargaStock?.takeIf { it.isNotBlank() } ?: "---"
-                lines.add(buildStaticLayout("Stock Anterior: $ant   |   Recarga: $rec", itemDetailPaint, contentWidth))
             }
 
             lines.addAll(buildRequestPriceLayouts(req, itemDetailPaint, contentWidth))
@@ -655,26 +630,14 @@ object ImageUtils {
             val dateStr = dateFormat.format(Date(req.timestamp))
             sb.append("*${req.titulo}* ($dateStr)\n")
             sb.append("Nombre Producto:\n")
-            sb.append("· ${req.descripcion}\n")
 
-            if (!req.variedadesMismoCosto.isNullOrBlank()) {
-                req.variedadesMismoCosto.split("\n")
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() && it != req.descripcion.trim() }
-                    .forEach { variety ->
-                        sb.append("· $variety\n")
-                    }
+            req.lineasProductosFormateadas.forEach { itemLine ->
+                sb.append("· $itemLine\n")
             }
 
-            val code = req.codigoProducto?.takeIf { it.isNotBlank() } ?: req.codigo?.takeIf { it.isNotBlank() }
+            val code = req.codigoEfectivo
             if (code != null) {
                 sb.append("Código: $code\n")
-            }
-
-            if (!req.stockAnterior.isNullOrBlank() || !req.recargaStock.isNullOrBlank()) {
-                val ant = req.stockAnterior?.takeIf { it.isNotBlank() } ?: "---"
-                val rec = req.recargaStock?.takeIf { it.isNotBlank() } ?: "---"
-                sb.append("Stock Anterior: $ant | Recarga: $rec\n")
             }
 
             when (req.tipoId) {
@@ -816,6 +779,8 @@ object ImageUtils {
     private fun buildStaticLayout(text: String, paint: TextPaint, width: Int): StaticLayout {
         return StaticLayout.Builder.obtain(text, 0, text.length, paint, width.coerceAtLeast(100))
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
+            .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
             .setLineSpacing(2f, 1.05f)
             .setIncludePad(false)
             .build()

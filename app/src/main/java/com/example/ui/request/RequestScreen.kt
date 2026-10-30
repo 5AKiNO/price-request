@@ -13,12 +13,13 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -40,33 +41,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,8 +71,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.Product
-import com.example.ui.theme.adaptiveTextFieldColors
+import com.example.data.model.VarietyStockItem
+import com.example.ui.components.FastButton
+import com.example.ui.components.FastChip
+import com.example.ui.components.FastOutlinedButton
+import com.example.ui.components.FastTextField
+import com.example.ui.components.SELECTABLE_PERCENTAGES
 import com.example.ui.theme.getContrastingTextColor
 import com.example.ui.theme.getRequestTypeColor
 import com.example.ui.theme.getRequestTypeContainerColor
@@ -118,7 +113,6 @@ private class UniversalTakePictureContract : ActivityResultContract<Uri, Bitmap?
             val fromFile = ImageUtils.decodeBitmapFromUri(ctx, uri)
             if (fromFile != null) return fromFile
         }
-        // Fallback for budget/custom cameras that return inline bitmap in extras
         val inlineBmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent?.extras?.getParcelable("data", Bitmap::class.java)
         } else {
@@ -129,22 +123,22 @@ private class UniversalTakePictureContract : ActivityResultContract<Uri, Bitmap?
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestScreen(
     viewModel: RequestViewModel,
     modifier: Modifier = Modifier,
-    initialProduct: Product? = null
+    initialProduct: Product? = null,
+    onEditSavedToHistory: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
     var uncroppedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var showCropDialog by remember { mutableStateOf(false) }
-    var isProductDropdownExpanded by remember { mutableStateOf(false) }
-    var productSearchQuery by remember { mutableStateOf("") }
     var newVarietyInput by remember { mutableStateOf("") }
+    var newVarietyStockInput by remember { mutableStateOf("") }
+    var newVarietyRecargaInput by remember { mutableStateOf("") }
 
     remember(initialProduct) {
         if (initialProduct != null) {
@@ -217,137 +211,34 @@ fun RequestScreen(
         }
     }
 
-    val requestTypes = listOf(
-        1 to "1. Falta Registrar",
-        2 to "2. Costo Subió",
-        3 to "3. Costo Bajó",
-        4 to "4. Supera % deseado",
-        5 to "5. Menor a % deseado"
-    )
+    val requestTypes = remember {
+        listOf(
+            1 to "1. Falta Registrar",
+            2 to "2. Costo Subió",
+            3 to "3. Costo Bajó",
+            4 to "4. Excede % deseado",
+            5 to "5. Inferior al % deseado"
+        )
+    }
 
     val activeColor = getRequestTypeColor(uiState.selectedTipoId)
     val activeContainerColor = getRequestTypeContainerColor(uiState.selectedTipoId)
-    val textOnActiveColor = getContrastingTextColor(activeColor)
     val textOnActiveContainer = getContrastingTextColor(activeContainerColor)
-
-    val screenBg = MaterialTheme.colorScheme.background
-    val screenTextColor = getContrastingTextColor(screenBg)
 
     val cardBg = MaterialTheme.colorScheme.surface
     val cardTextColor = getContrastingTextColor(cardBg)
-    val cardFieldColors = adaptiveTextFieldColors(
-        containerColor = cardBg,
-        borderColor = activeColor
-    )
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "Gestor de Solicitudes de Precio",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = screenTextColor
-        )
-
-        // Banner informativo: fondo claro del tipo de solicitud -> texto negro (getContrastingTextColor)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = activeContainerColor),
-            border = BorderStroke(2.dp, activeColor),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
+    @Composable
+    fun PhotoAndProductBlock() {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Sección Multimedia: Foto y Recorte 16:9 (contenedor plano ligero)
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = when (uiState.selectedTipoId) {
-                        2 -> Icons.Default.TrendingUp
-                        3 -> Icons.Default.TrendingDown
-                        else -> Icons.Default.Info
-                    },
-                    contentDescription = null,
-                    tint = textOnActiveContainer,
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = viewModel.getTipoTitle(uiState.selectedTipoId, uiState.porcentajeDeseado),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = textOnActiveContainer
-                )
-            }
-        }
-
-        // 1. Selector Horizontal de los 5 Tipos de Solicitud (fondo oscuro -> texto blanco, fondo claro -> texto negro)
-        Text(
-            text = "Tipo de Solicitud:",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = screenTextColor
-        )
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 2.dp)
-        ) {
-            items(
-                items = requestTypes,
-                key = { it.first },
-                contentType = { "request_type_chip" }
-            ) { (id, label) ->
-                val isSelected = uiState.selectedTipoId == id
-                val chipColor = getRequestTypeColor(id)
-                val chipContainer = getRequestTypeContainerColor(id)
-                val chipBg = if (isSelected) chipColor else chipContainer
-                val chipTextColor = getContrastingTextColor(chipBg)
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { viewModel.setTipoId(id) },
-                    label = {
-                        Text(
-                            text = label,
-                            fontWeight = FontWeight.Bold,
-                            color = chipTextColor
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = chipColor,
-                        selectedLabelColor = getContrastingTextColor(chipColor),
-                        containerColor = chipContainer,
-                        labelColor = getContrastingTextColor(chipContainer)
-                    ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = isSelected,
-                        borderColor = chipColor,
-                        selectedBorderColor = chipColor,
-                        borderWidth = 1.5.dp,
-                        selectedBorderWidth = 2.dp
-                    ),
-                    modifier = Modifier.testTag("request_tipo_chip_$id")
-                )
-            }
-        }
-
-        // 2. Sección Multimedia: Foto y Recorte Obligatorio 16:9
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = cardBg),
-            border = BorderStroke(1.5.dp, activeColor),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .background(cardBg, RoundedCornerShape(10.dp))
+                    .border(1.dp, activeColor, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -356,23 +247,20 @@ fun RequestScreen(
                 ) {
                     Text(
                         text = "Evidencia Fotográfica (Opcional 16:9)",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = cardTextColor
                     )
-                    Surface(
-                        color = activeContainerColor,
-                        border = BorderStroke(1.5.dp, activeColor),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = if (uiState.croppedBitmap169 != null) "Listo (16:9)" else "Opcional 16:9",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = textOnActiveContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
+                    Text(
+                        text = if (uiState.croppedBitmap169 != null) "Listo (16:9)" else "Opcional 16:9",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = textOnActiveContainer,
+                        modifier = Modifier
+                            .background(activeContainerColor, RoundedCornerShape(4.dp))
+                            .border(1.dp, activeColor, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
 
                 if (uiState.croppedBitmap169 != null) {
@@ -397,25 +285,26 @@ fun RequestScreen(
                         }
                     }
 
-                    OutlinedButton(
+                    FastOutlinedButton(
                         onClick = {
                             if (uncroppedBitmap != null) {
                                 showCropDialog = true
                             }
                         },
-                        border = BorderStroke(1.5.dp, activeColor),
+                        containerColor = cardBg,
+                        borderColor = activeColor,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Crop, contentDescription = null, tint = cardTextColor)
+                    ) { contentColor ->
+                        Icon(Icons.Default.Crop, contentDescription = null, tint = contentColor)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Reencuadrar Recorte 16:9", color = cardTextColor, fontWeight = FontWeight.Bold)
+                        Text("Reencuadrar Recorte 16:9", color = contentColor, fontWeight = FontWeight.Bold)
                     }
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        FastButton(
                             onClick = {
                                 val hasCamPerm = ContextCompat.checkSelfPermission(
                                     context,
@@ -427,20 +316,17 @@ fun RequestScreen(
                                     cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                                 }
                             },
+                            containerColor = activeColor,
                             modifier = Modifier
                                 .weight(1f)
-                                .testTag("request_button_camera"),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = activeColor,
-                                contentColor = textOnActiveColor
-                            )
-                        ) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = textOnActiveColor)
+                                .testTag("request_button_camera")
+                        ) { textOnActive ->
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = textOnActive)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Cámara", color = textOnActiveColor, fontWeight = FontWeight.Bold)
+                            Text("Cámara", color = textOnActive, fontWeight = FontWeight.Bold)
                         }
 
-                        OutlinedButton(
+                        FastOutlinedButton(
                             onClick = {
                                 try {
                                     galleryLauncher.launch(
@@ -452,277 +338,306 @@ fun RequestScreen(
                                     galleryFallbackLauncher.launch("image/*")
                                 }
                             },
-                            border = BorderStroke(1.5.dp, activeColor),
+                            containerColor = cardBg,
+                            borderColor = activeColor,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("request_button_gallery")
-                        ) {
-                            Icon(Icons.Default.Image, contentDescription = null, tint = cardTextColor)
+                        ) { contentColor ->
+                            Icon(Icons.Default.Image, contentDescription = null, tint = contentColor)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Galería", color = cardTextColor, fontWeight = FontWeight.Bold)
+                            Text("Galería", color = contentColor, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
-        }
 
-        // 3. Datos del Producto y Variedades
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = cardBg),
-            border = BorderStroke(1.5.dp, activeColor),
-            shape = RoundedCornerShape(12.dp)
-        ) {
+            // Datos del Producto y Variedades (con FastTextField y FastButton planos)
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(cardBg, RoundedCornerShape(10.dp))
+                    .border(1.dp, activeColor, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = if (uiState.selectedTipoId == 1) "Datos del Producto" else "Producto Registrado a Modificar",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = if (uiState.selectedTipoId == 1) "Datos del Producto" else "Producto a Modificar",
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = cardTextColor
                 )
 
-                if (uiState.selectedTipoId != 1) {
-                    ExposedDropdownMenuBox(
-                        expanded = isProductDropdownExpanded,
-                        onExpandedChange = { isProductDropdownExpanded = !isProductDropdownExpanded }
-                    ) {
-                        OutlinedTextField(
-                            value = productSearchQuery.ifEmpty { uiState.selectedProduct?.descripcion ?: "" },
-                            onValueChange = {
-                                productSearchQuery = it
-                                isProductDropdownExpanded = true
-                            },
-                            label = { Text("Buscar producto en catálogo (admite ñ)", color = cardTextColor) },
-                            placeholder = { Text("Escribe código o nombre...", color = cardTextColor) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isProductDropdownExpanded) },
-                            colors = cardFieldColors,
-                            singleLine = true,
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth()
-                                .testTag("request_product_search")
-                        )
-
-                        val filteredCandidates = remember(productSearchQuery, uiState.allProducts) {
-                            if (productSearchQuery.isBlank()) uiState.allProducts.take(6)
-                            else {
-                                val q = MathUtils.normalizarConEnie(productSearchQuery.trim())
-                                uiState.allProducts.filter {
-                                    it.searchIndex.contains(q)
-                                }.take(6)
-                            }
-                        }
-
-                        ExposedDropdownMenu(
-                            expanded = isProductDropdownExpanded,
-                            onDismissRequest = { isProductDropdownExpanded = false },
-                            containerColor = cardBg
-                        ) {
-                            filteredCandidates.forEach { prod ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text(prod.descripcion, fontWeight = FontWeight.Bold, color = cardTextColor)
-                                            val c = prod.precioCosto?.let { "Costo: Gs. ${MathUtils.formatearGuaranies(it)}" } ?: "Sin costo"
-                                            val v = prod.precioVenta?.let { "Venta: Gs. ${MathUtils.formatearGuaranies(it)}" } ?: "Sin venta"
-                                            Text("Cód: ${prod.codigo ?: "Sin cód"} | $c | $v", style = MaterialTheme.typography.bodySmall, color = cardTextColor)
-                                        }
-                                    },
-                                    onClick = {
-                                        viewModel.selectProduct(prod)
-                                        productSearchQuery = ""
-                                        isProductDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
                 // Código Opcional en las 5 opciones
-                OutlinedTextField(
+                FastTextField(
                     value = uiState.codigoProducto,
                     onValueChange = { viewModel.onCodigoChanged(it) },
-                    label = { Text("Código del Producto (Opcional)", color = cardTextColor) },
-                    placeholder = { Text("Ej: 100648", color = cardTextColor) },
-                    colors = cardFieldColors,
-                    singleLine = true,
+                    label = "Código del Producto (Opcional)",
+                    placeholder = "Ej: 100648",
+                    containerColor = cardBg,
+                    borderColor = activeColor,
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 // Descripción Principal (Obligatorio)
-                OutlinedTextField(
+                FastTextField(
                     value = uiState.descripcion,
                     onValueChange = { viewModel.onDescripcionChanged(it) },
-                    label = { Text("Descripción / Nombre Principal *", color = cardTextColor) },
-                    placeholder = { Text("Ej: Bandeja de Cartón N1", color = cardTextColor) },
-                    colors = cardFieldColors,
-                    singleLine = true,
+                    label = "Descripción / Nombre Principal *",
+                    placeholder = "Ej: Bandeja de Cartón N1",
+                    containerColor = cardBg,
+                    borderColor = activeColor,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Múltiples Variedades / Nombres con el Mismo Costo
+                // Stock y Recarga del Nombre Principal (En Tipo 1 se oculta Stock Anterior por ser producto nuevo)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (uiState.selectedTipoId != 1) {
+                        FastTextField(
+                            value = uiState.stockAnterior,
+                            onValueChange = { viewModel.onStockAnteriorChanged(it) },
+                            label = "Stock Principal (Opcional)",
+                            placeholder = "Ej: 5 unid.",
+                            containerColor = cardBg,
+                            borderColor = activeColor,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("request_main_stock_input")
+                        )
+                    }
+                    FastTextField(
+                        value = uiState.recargaStock,
+                        onValueChange = { viewModel.onRecargaStockChanged(it) },
+                        label = if (uiState.selectedTipoId == 1) "Recarga / Cantidad Inicial (Opcional)" else "Recarga Principal (Opcional)",
+                        placeholder = "Ej: +24 unid.",
+                        containerColor = cardBg,
+                        borderColor = activeColor,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("request_main_recarga_input")
+                    )
+                }
+
+                HorizontalDivider(color = activeColor.copy(alpha = 0.3f))
+
+                // Múltiples Variedades / Nombres con el Mismo Costo y su propio Stock / Recarga
                 Text(
                     text = "Variedades / Nombres con mismo costo (Opcional):",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = cardTextColor
+                )
+
+                FastTextField(
+                    value = newVarietyInput,
+                    onValueChange = { newVarietyInput = it },
+                    label = "Nombre de la variedad",
+                    placeholder = "Ej: Sabor Vainilla, Medida 20cm...",
+                    containerColor = cardBg,
+                    borderColor = activeColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("request_new_variety_name")
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    OutlinedTextField(
-                        value = newVarietyInput,
-                        onValueChange = { newVarietyInput = it },
-                        placeholder = { Text("Ej: Sabor Vainilla, Medida 20cm...", color = cardTextColor) },
-                        colors = cardFieldColors,
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
+                    if (uiState.selectedTipoId != 1) {
+                        FastTextField(
+                            value = newVarietyStockInput,
+                            onValueChange = { newVarietyStockInput = it },
+                            label = "Stock Variedad",
+                            placeholder = "Ej: 3 unid.",
+                            containerColor = cardBg,
+                            borderColor = activeColor,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("request_new_variety_stock")
+                        )
+                    }
+                    FastTextField(
+                        value = newVarietyRecargaInput,
+                        onValueChange = { newVarietyRecargaInput = it },
+                        label = "Recarga Variedad",
+                        placeholder = "Ej: +12 unid.",
+                        containerColor = cardBg,
+                        borderColor = activeColor,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("request_new_variety_recarga")
                     )
-                    Button(
+                    FastButton(
                         onClick = {
                             if (newVarietyInput.isNotBlank()) {
-                                viewModel.addVariety(newVarietyInput)
+                                viewModel.addVariety(
+                                    name = newVarietyInput,
+                                    stock = newVarietyStockInput,
+                                    recarga = newVarietyRecargaInput
+                                )
                                 newVarietyInput = ""
+                                newVarietyStockInput = ""
+                                newVarietyRecargaInput = ""
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = activeColor,
-                            contentColor = textOnActiveColor
-                        )
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = textOnActiveColor)
+                        containerColor = activeColor,
+                        modifier = Modifier.testTag("request_add_variety_button")
+                    ) { textOnActive ->
+                        Icon(Icons.Default.Add, contentDescription = null, tint = textOnActive, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Agregar", color = textOnActiveColor, fontWeight = FontWeight.Bold)
+                        Text("Agregar", color = textOnActive, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                // Vista previa tipo lista con puntos (·) con texto según el fondo
-                if (uiState.descripcion.isNotBlank() || uiState.variedadesList.isNotEmpty()) {
-                    val previewBg = activeContainerColor
-                    val previewTextColor = getContrastingTextColor(previewBg)
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = previewBg,
-                        border = BorderStroke(1.5.dp, activeColor),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Nombre Producto (Vista previa en imagen):",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = previewTextColor,
-                                fontWeight = FontWeight.Bold
-                            )
-                            if (uiState.descripcion.isNotBlank()) {
-                                Text(
-                                    text = "· ${uiState.descripcion.trim()}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = previewTextColor,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            uiState.variedadesList.forEachIndexed { index, variety ->
+                // Edición individual de Stock y Recarga para cada variedad ya agregada
+                if (uiState.variedadesList.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        uiState.variedadesList.forEachIndexed { index, varietyItem ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(cardBg, RoundedCornerShape(6.dp))
+                                    .border(1.dp, activeColor.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                    .padding(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "· $variety",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = previewTextColor,
+                                        text = "Variedad #${index + 1}: ${varietyItem.nombre}",
+                                        style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Bold,
+                                        color = cardTextColor,
                                         modifier = Modifier.weight(1f)
                                     )
                                     IconButton(
                                         onClick = { viewModel.removeVariety(index) },
-                                        modifier = Modifier.size(24.dp)
+                                        modifier = Modifier.size(26.dp)
                                     ) {
                                         Icon(
                                             Icons.Default.Clear,
                                             contentDescription = "Eliminar variedad",
-                                            tint = previewTextColor,
+                                            tint = cardTextColor,
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (uiState.selectedTipoId != 1) {
+                                        FastTextField(
+                                            value = varietyItem.stock,
+                                            onValueChange = { viewModel.updateVarietyStock(index, it) },
+                                            label = "Stock (Opcional)",
+                                            placeholder = "Sin declarar",
+                                            containerColor = cardBg,
+                                            borderColor = activeColor,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    FastTextField(
+                                        value = varietyItem.recarga,
+                                        onValueChange = { viewModel.updateVarietyRecarga(index, it) },
+                                        label = "Recarga (Opcional)",
+                                        placeholder = "Sin declarar",
+                                        containerColor = cardBg,
+                                        borderColor = activeColor,
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
                             }
                         }
                     }
                 }
 
-                // Campos Opcionales de Stock
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedTextField(
-                        value = uiState.stockAnterior,
-                        onValueChange = { viewModel.onStockAnteriorChanged(it) },
-                        label = { Text("Stock Anterior (Opcional)", color = cardTextColor) },
-                        placeholder = { Text("Ej: 5 unid.", color = cardTextColor) },
-                        colors = cardFieldColors,
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = uiState.recargaStock,
-                        onValueChange = { viewModel.onRecargaStockChanged(it) },
-                        label = { Text("Recarga Stock (Opcional)", color = cardTextColor) },
-                        placeholder = { Text("Ej: +24 unid.", color = cardTextColor) },
-                        colors = cardFieldColors,
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
+                // Vista previa tipo lista con viñetas (·): omite Stock o Recarga si no se declararon
+                if (uiState.descripcion.isNotBlank() || uiState.variedadesList.isNotEmpty()) {
+                    val previewBg = activeContainerColor
+                    val previewTextColor = getContrastingTextColor(previewBg)
+                    val includeStockInPreview = uiState.selectedTipoId != 1
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(previewBg, RoundedCornerShape(6.dp))
+                            .border(1.dp, activeColor, RoundedCornerShape(6.dp))
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = "Nombre Producto (Vista previa en imagen/TXT):",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = previewTextColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (uiState.descripcion.isNotBlank()) {
+                            val mainFormatted = VarietyStockItem(
+                                nombre = uiState.descripcion,
+                                stock = uiState.stockAnterior,
+                                recarga = uiState.recargaStock
+                            ).formatBulletLine(includeStock = includeStockInPreview)
+                            Text(
+                                text = "· $mainFormatted",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = previewTextColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        uiState.variedadesList.forEach { varietyItem ->
+                            val formattedVariety = varietyItem.formatBulletLine(includeStock = includeStockInPreview)
+                            Text(
+                                text = "· $formattedVariety",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = previewTextColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
 
-        // 4. VALORES DE COSTO Y VENTA (ORDEN EXACTO SEGÚN EL TIPO DE SOLICITUD 1, 2-3, 4-5)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = cardBg),
-            border = BorderStroke(1.5.dp, activeColor),
-            shape = RoundedCornerShape(12.dp)
-        ) {
+    @Composable
+    fun PricesAndSubmitBlock() {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // VALORES DE COSTO Y VENTA (contenedor plano ligero con FastTextField y FastChip)
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(cardBg, RoundedCornerShape(10.dp))
+                    .border(1.dp, activeColor, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = "Valores de Costo y Venta",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = cardTextColor
                 )
 
                 when (uiState.selectedTipoId) {
-                    // =========================================================================
-                    // TIPO 1: FALTA REGISTRAR (Costo + Venta con botones de 20% a 50%)
-                    // =========================================================================
                     1 -> {
-                        OutlinedTextField(
+                        val parsedCosto = uiState.costoNuevo.toLongOrNull()
+                        FastTextField(
                             value = uiState.costoNuevo,
                             onValueChange = { viewModel.onCostoNuevoChanged(it) },
-                            label = { Text("Precio de Costo (Gs.) *", color = cardTextColor) },
-                            placeholder = { Text("Ej: 3500", color = cardTextColor) },
-                            colors = cardFieldColors,
+                            label = "Precio de Costo (Gs.) *",
+                            placeholder = "Ej: 3500",
+                            containerColor = cardBg,
+                            borderColor = activeColor,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            supportingText = {
-                                val c = uiState.costoNuevo.toLongOrNull()
-                                if (c != null) Text("Gs. ${MathUtils.formatearGuaranies(c)}", color = cardTextColor, fontWeight = FontWeight.Bold)
-                            },
+                            supportingText = parsedCosto?.let { "Gs. ${MathUtils.formatearGuaranies(it)}" },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("request_input_costo_nuevo")
@@ -741,54 +656,39 @@ fun RequestScreen(
                         )
                     }
 
-                    // =========================================================================
-                    // TIPOS 2 y 3: SUBIDA Y BAJADA DE COSTO
-                    // Orden estricto:
-                    // 1. Precio de Costo Anterior
-                    // 2. Precio de Costo Nuevo
-                    // 3. Precio de Venta Anterior con su porcentaje seleccionable (20% a 50%)
-                    // 4. Precio de Venta Nuevo con su porcentaje seleccionable (20% a 50%)
-                    // =========================================================================
                     2, 3 -> {
-                        // 1. Precio de Costo Anterior
-                        OutlinedTextField(
+                        val parsedCostoAnt = uiState.costoAnteriorInput.toLongOrNull()
+                        FastTextField(
                             value = uiState.costoAnteriorInput,
                             onValueChange = { viewModel.onCostoAnteriorChanged(it) },
-                            label = { Text("1. Precio de Costo Anterior (Gs.) *", color = cardTextColor) },
-                            placeholder = { Text("Ej: 3000", color = cardTextColor) },
-                            colors = cardFieldColors,
+                            label = "1. Precio de Costo Anterior (Gs.) *",
+                            placeholder = "Ej: 3000",
+                            containerColor = cardBg,
+                            borderColor = activeColor,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            supportingText = {
-                                val cAnt = uiState.costoAnteriorInput.toLongOrNull()
-                                if (cAnt != null) Text("Gs. ${MathUtils.formatearGuaranies(cAnt)}", color = cardTextColor, fontWeight = FontWeight.Bold)
-                            },
+                            supportingText = parsedCostoAnt?.let { "Gs. ${MathUtils.formatearGuaranies(it)}" },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("request_input_costo_anterior")
                         )
 
-                        // 2. Precio de Costo Nuevo
-                        OutlinedTextField(
+                        val parsedCostoNuevo = uiState.costoNuevo.toLongOrNull()
+                        FastTextField(
                             value = uiState.costoNuevo,
                             onValueChange = { viewModel.onCostoNuevoChanged(it) },
-                            label = { Text("2. Precio de Costo Nuevo (Gs.) *", color = cardTextColor) },
-                            placeholder = { Text("Ej: 3500", color = cardTextColor) },
-                            colors = cardFieldColors,
+                            label = "2. Precio de Costo Nuevo (Gs.) *",
+                            placeholder = "Ej: 3500",
+                            containerColor = cardBg,
+                            borderColor = activeColor,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            supportingText = {
-                                val cNuevo = uiState.costoNuevo.toLongOrNull()
-                                if (cNuevo != null) Text("Gs. ${MathUtils.formatearGuaranies(cNuevo)}", color = cardTextColor, fontWeight = FontWeight.Bold)
-                            },
+                            supportingText = parsedCostoNuevo?.let { "Gs. ${MathUtils.formatearGuaranies(it)}" },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("request_input_costo_nuevo")
                         )
 
-                        HorizontalDivider(color = activeColor.copy(alpha = 0.4f))
+                        HorizontalDivider(color = activeColor.copy(alpha = 0.35f))
 
-                        // 3. Precio de Venta Anterior con su porcentaje seleccionable
                         SelectablePercentageAndPriceBlock(
                             priceLabel = "3. Precio de Venta Anterior (Gs.) *",
                             priceValue = uiState.ventaAnteriorInput,
@@ -801,9 +701,8 @@ fun RequestScreen(
                             priceTestTag = "request_input_venta_anterior"
                         )
 
-                        HorizontalDivider(color = activeColor.copy(alpha = 0.4f))
+                        HorizontalDivider(color = activeColor.copy(alpha = 0.35f))
 
-                        // 4. Precio de Venta Nuevo con su porcentaje seleccionable
                         SelectablePercentageAndPriceBlock(
                             priceLabel = "4. Precio de Venta Nuevo (Gs.) *",
                             priceValue = uiState.ventaNueva,
@@ -817,35 +716,72 @@ fun RequestScreen(
                         )
                     }
 
-                    // =========================================================================
-                    // TIPOS 4 y 5: CAMBIO DE PRECIO DE VENTA AL SUBIR Y BAJAR (UN SOLO COSTO)
-                    // Orden estricto:
-                    // 1. Precio de Costo (una sola vez)
-                    // 2. Precio de Venta Anterior con su porcentaje seleccionable (20% a 50%)
-                    // 3. Precio de Venta Nuevo con su porcentaje seleccionable (20% a 50%)
-                    // =========================================================================
                     4, 5 -> {
-                        // 1. Precio de Costo (único)
-                        OutlinedTextField(
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Porcentaje deseado por el usuario:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = cardTextColor
+                                )
+                                Text(
+                                    text = "${uiState.porcentajeDeseado}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = textOnActiveContainer,
+                                    modifier = Modifier
+                                        .background(activeContainerColor, RoundedCornerShape(4.dp))
+                                        .border(1.dp, activeColor, RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SELECTABLE_PERCENTAGES.forEach { pct ->
+                                    val isSelected = uiState.porcentajeDeseado == pct
+                                    FastChip(
+                                        selected = isSelected,
+                                        onClick = { viewModel.onPorcentajeDeseadoChanged(pct) },
+                                        label = "$pct%",
+                                        selectedContainerColor = activeColor,
+                                        unselectedContainerColor = activeContainerColor,
+                                        borderColor = activeColor,
+                                        modifier = Modifier.testTag("request_desired_pct_$pct")
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = activeColor.copy(alpha = 0.35f))
+
+                        val parsedCosto = uiState.costoNuevo.toLongOrNull()
+                        FastTextField(
                             value = uiState.costoNuevo,
                             onValueChange = { viewModel.onCostoNuevoChanged(it) },
-                            label = { Text("1. Precio de Costo (Gs.) *", color = cardTextColor) },
-                            placeholder = { Text("Ej: 3500", color = cardTextColor) },
-                            colors = cardFieldColors,
+                            label = "1. Precio de Costo (Gs.) *",
+                            placeholder = "Ej: 3500",
+                            containerColor = cardBg,
+                            borderColor = activeColor,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            supportingText = {
-                                val c = uiState.costoNuevo.toLongOrNull()
-                                if (c != null) Text("Gs. ${MathUtils.formatearGuaranies(c)}", color = cardTextColor, fontWeight = FontWeight.Bold)
-                            },
+                            supportingText = parsedCosto?.let { "Gs. ${MathUtils.formatearGuaranies(it)}" },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("request_input_costo_nuevo")
                         )
 
-                        HorizontalDivider(color = activeColor.copy(alpha = 0.4f))
+                        HorizontalDivider(color = activeColor.copy(alpha = 0.35f))
 
-                        // 2. Precio de Venta Anterior con su porcentaje seleccionable
                         SelectablePercentageAndPriceBlock(
                             priceLabel = "2. Precio de Venta Anterior (Gs.) *",
                             priceValue = uiState.ventaAnteriorInput,
@@ -858,9 +794,8 @@ fun RequestScreen(
                             priceTestTag = "request_input_venta_anterior"
                         )
 
-                        HorizontalDivider(color = activeColor.copy(alpha = 0.4f))
+                        HorizontalDivider(color = activeColor.copy(alpha = 0.35f))
 
-                        // 3. Precio de Venta Nuevo con su porcentaje seleccionable
                         SelectablePercentageAndPriceBlock(
                             priceLabel = "3. Precio de Venta Nuevo (Gs.) *",
                             priceValue = uiState.ventaNueva,
@@ -875,20 +810,16 @@ fun RequestScreen(
                     }
                 }
             }
-        }
 
-        if (uiState.validationError != null) {
-            val errBg = Color(0xFFFFEBEE)
-            val errText = getContrastingTextColor(errBg)
-            Card(
-                colors = CardDefaults.cardColors(containerColor = errBg),
-                border = BorderStroke(1.5.dp, Color(0xFFB71C1C)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            if (uiState.validationError != null) {
+                val errBg = Color(0xFFFFEBEE)
+                val errText = getContrastingTextColor(errBg)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .background(errBg, RoundedCornerShape(8.dp))
+                        .border(1.dp, Color(0xFFB71C1C), RoundedCornerShape(8.dp))
+                        .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Default.Warning, contentDescription = null, tint = errText)
@@ -896,44 +827,229 @@ fun RequestScreen(
                     Text(
                         text = uiState.validationError!!,
                         color = errText,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-        }
 
-        // Botón Principal - Envío a WhatsApp de SOLO LA IMAGEN RENDERIZADA
-        Button(
-            onClick = {
-                if (newVarietyInput.isNotBlank()) {
-                    viewModel.addVariety(newVarietyInput)
-                    newVarietyInput = ""
+            val isEditingHistory = uiState.editingRequestId != null
+
+            if (isEditingHistory) {
+                FastOutlinedButton(
+                    onClick = {
+                        if (newVarietyInput.isNotBlank()) {
+                            viewModel.addVariety(
+                                name = newVarietyInput,
+                                stock = newVarietyStockInput,
+                                recarga = newVarietyRecargaInput
+                            )
+                            newVarietyInput = ""
+                            newVarietyStockInput = ""
+                            newVarietyRecargaInput = ""
+                        }
+                        viewModel.validateAndSubmit(
+                            shareToWhatsApp = false,
+                            onSavedOnly = {
+                                Toast.makeText(
+                                    context,
+                                    "Solicitud actualizada en el historial",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                onEditSavedToHistory?.invoke()
+                            }
+                        )
+                    },
+                    containerColor = cardBg,
+                    borderColor = activeColor,
+                    minHeight = 46.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("request_button_save_edit_only")
+                ) { contentColor ->
+                    Icon(Icons.Default.Check, contentDescription = null, tint = contentColor)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Guardar Cambios en Historial",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor
+                    )
                 }
-                viewModel.validateAndSubmit { imageUri ->
-                    ImageUtils.shareImageOnlyToWhatsApp(context, imageUri)
-                }
-            },
-            colors = ButtonDefaults.buttonColors(
+            }
+
+            // Botón Principal plano - Envío a WhatsApp de SOLO LA IMAGEN RENDERIZADA
+            FastButton(
+                onClick = {
+                    if (newVarietyInput.isNotBlank()) {
+                        viewModel.addVariety(
+                            name = newVarietyInput,
+                            stock = newVarietyStockInput,
+                            recarga = newVarietyRecargaInput
+                        )
+                        newVarietyInput = ""
+                        newVarietyStockInput = ""
+                        newVarietyRecargaInput = ""
+                    }
+                    viewModel.validateAndSubmit(
+                        shareToWhatsApp = true,
+                        onReadyToShareImageOnly = { imageUri ->
+                            ImageUtils.shareImageOnlyToWhatsApp(context, imageUri)
+                        }
+                    )
+                },
                 containerColor = activeColor,
-                contentColor = textOnActiveColor
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp)
-                .testTag("request_button_submit_whatsapp")
-        ) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = textOnActiveColor)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Generar Ficha y Enviar a WhatsApp",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = textOnActiveColor
-            )
+                minHeight = 48.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("request_button_submit_whatsapp")
+            ) { textOnActive ->
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = textOnActive)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isEditingHistory) {
+                        "Actualizar y Enviar a WhatsApp"
+                    } else {
+                        "Generar Ficha y Enviar a WhatsApp"
+                    },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = textOnActive
+                )
+            }
         }
+    }
 
-        Spacer(modifier = Modifier.height(32.dp))
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isTwoColumn = maxWidth >= 700.dp
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (uiState.editingRequestId != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(activeContainerColor, RoundedCornerShape(8.dp))
+                        .border(1.5.dp, activeColor, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = textOnActiveContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Editando solicitud del historial",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = textOnActiveContainer
+                        )
+                    }
+                    FastOutlinedButton(
+                        onClick = { viewModel.cancelEditing() },
+                        containerColor = cardBg,
+                        borderColor = activeColor,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        minHeight = 32.dp,
+                        modifier = Modifier.testTag("request_cancel_edit_button")
+                    ) { contentColor ->
+                        Text(
+                            text = "Cancelar edición",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = contentColor
+                        )
+                    }
+                }
+            }
+
+            // Encabezado plano del tipo de solicitud activo
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(activeContainerColor, RoundedCornerShape(8.dp))
+                    .border(1.5.dp, activeColor, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = when (uiState.selectedTipoId) {
+                        2 -> Icons.Default.TrendingUp
+                        3 -> Icons.Default.TrendingDown
+                        else -> Icons.Default.Info
+                    },
+                    contentDescription = null,
+                    tint = textOnActiveContainer,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = viewModel.getTipoTitle(uiState.selectedTipoId, uiState.porcentajeDeseado),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = textOnActiveContainer
+                )
+            }
+
+            // Selector Horizontal plano de los 5 Tipos de Solicitud
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp)
+            ) {
+                items(
+                    items = requestTypes,
+                    key = { it.first },
+                    contentType = { "request_type_chip" }
+                ) { (id, label) ->
+                    val isSelected = uiState.selectedTipoId == id
+                    val chipColor = getRequestTypeColor(id)
+                    val chipContainer = getRequestTypeContainerColor(id)
+                    FastChip(
+                        selected = isSelected,
+                        onClick = { viewModel.setTipoId(id) },
+                        label = label,
+                        selectedContainerColor = chipColor,
+                        unselectedContainerColor = chipContainer,
+                        borderColor = chipColor,
+                        modifier = Modifier.testTag("request_tipo_chip_$id")
+                    )
+                }
+            }
+
+            if (isTwoColumn) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        PhotoAndProductBlock()
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        PricesAndSubmitBlock()
+                    }
+                }
+            } else {
+                PhotoAndProductBlock()
+                PricesAndSubmitBlock()
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
     }
 
     if (showCropDialog && uncroppedBitmap != null) {
@@ -950,8 +1066,7 @@ fun RequestScreen(
 
 /**
  * Reusable component for a Sale Price input paired ONLY with the selectable percentage buttons
- * from 20% to 50% (20%, 25%, 30%, 40%, 50%), where dark backgrounds use white text and light
- * backgrounds use black text.
+ * from 20% to 50% (20%, 25%, 30%, 35%, 50%), using flat FastTextField and FastChip.
  */
 @Composable
 private fun SelectablePercentageAndPriceBlock(
@@ -967,39 +1082,27 @@ private fun SelectablePercentageAndPriceBlock(
 ) {
     val cardTextColor = getContrastingTextColor(cardBg)
     val badgeTextColor = getContrastingTextColor(activeContainerColor)
-    val textOnActive = getContrastingTextColor(activeColor)
-    val fieldColors = adaptiveTextFieldColors(
-        containerColor = cardBg,
-        borderColor = activeColor
-    )
+    val parsedVenta = priceValue.toLongOrNull()
+    val supportingStr = parsedVenta?.let { v ->
+        val pctSuffix = selectedPercentage?.let { " ($it%)" } ?: ""
+        "Gs. ${MathUtils.formatearGuaranies(v)}$pctSuffix"
+    }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Campo de Precio de Venta
-        OutlinedTextField(
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FastTextField(
             value = priceValue,
             onValueChange = onPriceChanged,
-            label = { Text(priceLabel, color = cardTextColor) },
-            placeholder = { Text("Ej: 4500", color = cardTextColor) },
-            colors = fieldColors,
+            label = priceLabel,
+            placeholder = "Ej: 4500",
+            containerColor = cardBg,
+            borderColor = activeColor,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
-            supportingText = {
-                val v = priceValue.toLongOrNull()
-                if (v != null) {
-                    val pctSuffix = selectedPercentage?.let { " ($it%)" } ?: ""
-                    Text(
-                        text = "Gs. ${MathUtils.formatearGuaranies(v)}$pctSuffix",
-                        color = cardTextColor,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            },
+            supportingText = supportingStr,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(priceTestTag)
         )
 
-        // Encabezado de porcentaje con insignia de borde coloreado y texto según su fondo
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1007,63 +1110,40 @@ private fun SelectablePercentageAndPriceBlock(
         ) {
             Text(
                 text = "Porcentaje seleccionable:",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = cardTextColor
             )
             if (selectedPercentage != null) {
-                Surface(
-                    color = activeContainerColor,
-                    shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(1.5.dp, activeColor)
-                ) {
-                    Text(
-                        text = "$selectedPercentage%",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = badgeTextColor,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
-                }
+                Text(
+                    text = "$selectedPercentage%",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = badgeTextColor,
+                    modifier = Modifier
+                        .background(activeContainerColor, RoundedCornerShape(4.dp))
+                        .border(1.dp, activeColor, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                )
             }
         }
 
-        // Grupo de botones seleccionables únicamente de 20% hasta 50%
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf(20, 25, 30, 40, 50).forEach { pct ->
+            SELECTABLE_PERCENTAGES.forEach { pct ->
                 val isSelected = selectedPercentage == pct
-                val chipBg = if (isSelected) activeColor else activeContainerColor
-                val chipText = getContrastingTextColor(chipBg)
-                FilterChip(
+                FastChip(
                     selected = isSelected,
                     onClick = { onSelectPercentage(pct) },
-                    label = {
-                        Text(
-                            text = "$pct%",
-                            fontWeight = FontWeight.Bold,
-                            color = chipText
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = activeColor,
-                        selectedLabelColor = textOnActive,
-                        containerColor = activeContainerColor,
-                        labelColor = badgeTextColor
-                    ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = isSelected,
-                        borderColor = activeColor,
-                        selectedBorderColor = activeColor,
-                        borderWidth = 1.5.dp,
-                        selectedBorderWidth = 2.dp
-                    )
+                    label = "$pct%",
+                    selectedContainerColor = activeColor,
+                    unselectedContainerColor = activeContainerColor,
+                    borderColor = activeColor
                 )
             }
         }

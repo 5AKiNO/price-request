@@ -1,6 +1,7 @@
 package com.example.ui.catalog
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,25 +12,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,10 +36,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Product
+import com.example.ui.components.FastButton
+import com.example.ui.components.FastChip
+import com.example.ui.components.FastOutlinedButton
+import com.example.ui.components.FastTextField
+import com.example.ui.components.SELECTABLE_PERCENTAGES
 import com.example.ui.theme.BrandBlueContainer
 import com.example.ui.theme.BrandBluePrimary
 import com.example.ui.theme.Tipo1Verde
-import com.example.ui.theme.adaptiveTextFieldColors
 import com.example.ui.theme.getContrastingTextColor
 import com.example.util.MathUtils
 
@@ -65,10 +62,6 @@ fun ProductDialog(
 
     val dialogBg = MaterialTheme.colorScheme.surface
     val dialogTextColor = getContrastingTextColor(dialogBg)
-    val textFieldColors = adaptiveTextFieldColors(
-        containerColor = dialogBg,
-        borderColor = BrandBluePrimary
-    )
 
     val calculatedMargin = remember(costoText, ventaText) {
         val c = costoText.toLongOrNull()
@@ -140,42 +133,42 @@ fun ProductDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Código (Opcional)
-                OutlinedTextField(
+                FastTextField(
                     value = codigo,
                     onValueChange = { codigo = it },
-                    label = { Text("Código de Barras / Referencia (Opcional)", color = dialogTextColor) },
-                    placeholder = { Text("Ej: 100648", color = dialogTextColor) },
-                    colors = textFieldColors,
-                    singleLine = true,
+                    label = "Código de Barras / Referencia (Opcional)",
+                    placeholder = "Ej: 100648",
+                    containerColor = dialogBg,
+                    borderColor = BrandBluePrimary,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("product_input_codigo")
                 )
 
                 // Descripción (Obligatorio, UTF-8 con ñ)
-                OutlinedTextField(
+                FastTextField(
                     value = descripcion,
                     onValueChange = {
                         descripcion = it
                         if (it.isNotBlank()) descError = false
                     },
-                    label = { Text("Descripción del Producto *", color = dialogTextColor) },
-                    placeholder = { Text("Ej: Bandeja de Cartón Diseño Español N1", color = dialogTextColor) },
-                    colors = textFieldColors,
+                    label = "Descripción del Producto *",
+                    placeholder = "Ej: Bandeja de Cartón Diseño Español N1",
+                    containerColor = dialogBg,
+                    borderColor = BrandBluePrimary,
                     isError = descError,
-                    supportingText = {
-                        if (descError) Text("La descripción es obligatoria", color = dialogTextColor, fontWeight = FontWeight.Bold)
-                    },
+                    supportingText = if (descError) "La descripción es obligatoria" else null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("product_input_descripcion")
                 )
 
                 // Precio de Costo (Gs.)
-                OutlinedTextField(
+                val parsedCosto = costoText.toLongOrNull()
+                FastTextField(
                     value = costoText,
                     onValueChange = { input ->
                         val digits = input.filter { it.isDigit() }
@@ -188,27 +181,22 @@ fun ProductDialog(
                             ventaText = autoVenta.toString()
                         }
                     },
-                    label = { Text("Precio de Costo (Gs.) *", color = dialogTextColor) },
-                    placeholder = { Text("Ej: 2800", color = dialogTextColor) },
-                    colors = textFieldColors,
+                    label = "Precio de Costo (Gs.) *",
+                    placeholder = "Ej: 2800",
+                    containerColor = dialogBg,
+                    borderColor = BrandBluePrimary,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = costoError,
-                    singleLine = true,
-                    supportingText = {
-                        val c = costoText.toLongOrNull()
-                        if (c != null) {
-                            Text("Gs. ${MathUtils.formatearGuaranies(c)}", color = dialogTextColor, fontWeight = FontWeight.Bold)
-                        }
-                    },
+                    supportingText = parsedCosto?.let { "Gs. ${MathUtils.formatearGuaranies(it)}" },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("product_input_costo")
                 )
 
-                // Grupo de botones seleccionables únicamente de 20% hasta 50%
+                // Grupo de botones seleccionables de 20%, 25%, 30%, 35% y 50%
                 Text(
                     text = "Porcentaje seleccionable:",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = dialogTextColor
                 )
@@ -216,118 +204,89 @@ fun ProductDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf(20, 25, 30, 40, 50).forEach { pct ->
+                    SELECTABLE_PERCENTAGES.forEach { pct ->
                         val isSelected = (calculatedMargin ?: porcentajeSeleccionado) == pct
-                        val chipBg = if (isSelected) BrandBluePrimary else BrandBlueContainer
-                        val chipText = getContrastingTextColor(chipBg)
-                        FilterChip(
+                        FastChip(
                             selected = isSelected,
                             onClick = { applyPercentage(pct) },
-                            label = {
-                                Text(
-                                    text = "$pct%",
-                                    fontWeight = FontWeight.Bold,
-                                    color = chipText
-                                )
-                            },
-                            leadingIcon = if (isSelected) {
-                                { Icon(Icons.Default.Check, contentDescription = null, tint = chipText) }
-                            } else null,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BrandBluePrimary,
-                                selectedLabelColor = getContrastingTextColor(BrandBluePrimary),
-                                containerColor = BrandBlueContainer,
-                                labelColor = getContrastingTextColor(BrandBlueContainer)
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = isSelected,
-                                borderColor = BrandBluePrimary,
-                                selectedBorderColor = BrandBluePrimary,
-                                borderWidth = 1.5.dp,
-                                selectedBorderWidth = 2.dp
-                            )
+                            label = "$pct%",
+                            selectedContainerColor = BrandBluePrimary,
+                            unselectedContainerColor = BrandBlueContainer,
+                            borderColor = BrandBluePrimary,
+                            showCheckIcon = true,
+                            modifier = Modifier.testTag("product_pct_chip_$pct")
                         )
                     }
                 }
 
                 // Precio de Venta (Gs.)
-                OutlinedTextField(
+                val parsedVenta = ventaText.toLongOrNull()
+                val ventaSupporting = parsedVenta?.let { v ->
+                    val mSuffix = calculatedMargin?.let { " ($it%)" } ?: ""
+                    "Gs. ${MathUtils.formatearGuaranies(v)}$mSuffix"
+                }
+                FastTextField(
                     value = ventaText,
                     onValueChange = { input ->
                         val digits = input.filter { it.isDigit() }
                         ventaText = digits
                         ventaError = false
                     },
-                    label = { Text("Precio de Venta (Gs.) *", color = dialogTextColor) },
-                    placeholder = { Text("Ej: 4000", color = dialogTextColor) },
-                    colors = textFieldColors,
+                    label = "Precio de Venta (Gs.) *",
+                    placeholder = "Ej: 4000",
+                    containerColor = dialogBg,
+                    borderColor = BrandBluePrimary,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = ventaError,
-                    singleLine = true,
-                    supportingText = {
-                        val v = ventaText.toLongOrNull()
-                        if (v != null) {
-                            val mSuffix = calculatedMargin?.let { " ($it%)" } ?: ""
-                            Text("Gs. ${MathUtils.formatearGuaranies(v)}$mSuffix", color = dialogTextColor, fontWeight = FontWeight.Bold)
-                        }
-                    },
+                    supportingText = ventaSupporting,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("product_input_venta")
                 )
 
-                // Card resumen de margen calculado con contraste según su fondo
+                // Resumen plano de margen calculado
                 if (calculatedMargin != null) {
                     val summaryBg = BrandBlueContainer
                     val summaryText = getContrastingTextColor(summaryBg)
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = summaryBg),
-                        border = BorderStroke(1.5.dp, BrandBluePrimary),
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(summaryBg, RoundedCornerShape(8.dp))
+                            .border(1.dp, BrandBluePrimary, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Info,
-                                contentDescription = null,
-                                tint = summaryText
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Margen Real Redondeado: $calculatedMargin%",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = summaryText
-                            )
-                        }
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = summaryText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Margen Real Redondeado: $calculatedMargin%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = summaryText
+                        )
                     }
                 }
 
                 // Botón directo para Guardar y Compartir el producto recién creado
                 if (onSaveAndShare != null) {
-                    val shareBtnBg = Tipo1Verde
-                    val shareBtnText = getContrastingTextColor(shareBtnBg)
-                    Button(
+                    FastButton(
                         onClick = {
                             validateAndRun { id, cod, desc, c, v, p ->
                                 onSaveAndShare(id, cod, desc, c, v, p)
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = shareBtnBg,
-                            contentColor = shareBtnText
-                        ),
+                        containerColor = Tipo1Verde,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("product_button_guardar_compartir")
-                    ) {
+                    ) { shareBtnText ->
                         Icon(Icons.Default.Share, contentDescription = null, tint = shareBtnText, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Guardar y Compartir (TXT o Imagen)", color = shareBtnText, fontWeight = FontWeight.Bold)
@@ -336,29 +295,25 @@ fun ProductDialog(
             }
         },
         confirmButton = {
-            val saveBtnBg = BrandBluePrimary
-            val saveBtnText = getContrastingTextColor(saveBtnBg)
-            Button(
+            FastButton(
                 onClick = {
                     validateAndRun { id, cod, desc, c, v, p ->
                         onSave(id, cod, desc, c, v, p)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = saveBtnBg,
-                    contentColor = saveBtnText
-                ),
+                containerColor = BrandBluePrimary,
                 modifier = Modifier.testTag("product_button_guardar")
-            ) {
+            ) { saveBtnText ->
                 Text("Guardar Producto", color = saveBtnText, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            OutlinedButton(
+            FastOutlinedButton(
                 onClick = onDismiss,
-                border = BorderStroke(1.5.dp, BrandBluePrimary)
-            ) {
-                Text("Cancelar", color = dialogTextColor, fontWeight = FontWeight.Bold)
+                containerColor = dialogBg,
+                borderColor = BrandBluePrimary
+            ) { contentColor ->
+                Text("Cancelar", color = contentColor, fontWeight = FontWeight.Bold)
             }
         }
     )

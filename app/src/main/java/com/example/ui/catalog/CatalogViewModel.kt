@@ -1,6 +1,7 @@
 package com.example.ui.catalog
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,22 +10,20 @@ import com.example.data.model.Product
 import com.example.data.repository.ProductRepository
 import com.example.util.MathUtils
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Immutable
 data class CatalogUiState(
     val workplaceName: String = FastBinaryStore.DEFAULT_WORKPLACE_NAME,
     val allProducts: List<Product> = emptyList(),
     val filteredProducts: List<Product> = emptyList(),
-    val recentOrQuickProducts: List<Product> = emptyList(),
     val searchQuery: String = "",
     val activeFilter: String = "Todos",
     val selectedProductIds: Set<String> = emptySet(),
@@ -35,7 +34,6 @@ data class CatalogUiState(
     val isWorkplaceDialogOpen: Boolean = false
 )
 
-@OptIn(FlowPreview::class)
 class CatalogViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: ProductRepository = ProductRepository(FastBinaryStore.getInstance(application))
@@ -62,25 +60,21 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
 
     private val _isWorkplaceDialogOpen = MutableStateFlow(false)
 
-    // Debounced search query to prevent jank on low-end phones
-    private val debouncedQuery = _searchQuery
-        .debounce(90L)
-
     val uiState: StateFlow<CatalogUiState> = combine(
         repository.allProducts,
         repository.workplaceName,
-        debouncedQuery,
+        _searchQuery,
         _activeFilter,
         _selectedProductIds
     ) { products, workplace, query, filter, selectedIds ->
 
-        val normalizedQuery = MathUtils.normalizarConEnie(query.trim())
+        val trimmedQuery = query.trim()
 
-        val searched = if (normalizedQuery.isEmpty()) {
+        val searched = if (trimmedQuery.isEmpty()) {
             products
         } else {
             products.filter { prod ->
-                prod.searchIndex.contains(normalizedQuery)
+                prod.matchesQuery(trimmedQuery)
             }
         }
 
@@ -92,18 +86,17 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
             "Seleccionados" -> searched.filter { selectedIds.contains(it.id) }
             "20%" -> searched.filter { it.porcentajeRealRedondeado == 20 }
             "25%" -> searched.filter { it.porcentajeRealRedondeado == 25 }
+            "30%" -> searched.filter { it.porcentajeRealRedondeado == 30 }
+            "35%" -> searched.filter { it.porcentajeRealRedondeado == 35 }
             "Personalizado" -> searched.filter { it.porcentajePersonalizado != null }
             else -> searched
         }
-
-        val quickCards = products.take(8)
 
         CatalogUiState(
             workplaceName = workplace,
             allProducts = products,
             filteredProducts = filtered,
-            recentOrQuickProducts = quickCards,
-            searchQuery = _searchQuery.value,
+            searchQuery = query,
             activeFilter = filter,
             selectedProductIds = selectedIds
         )
@@ -248,6 +241,45 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
 
     fun closeExportDialog() {
         _isExportDialogOpen.value = false
+    }
+
+    fun exportCatalogBinaryToUri(uri: Uri, onComplete: (Result<Int>) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val bytes = repository.exportCatalogBinary()
+                    val count = uiState.value.allProducts.size
+                    val resolver = getApplication<Application>().contentResolver
+                    resolver.openOutputStream(uri)?.use { out ->
+                        out.write(bytes)
+                        out.flush()
+                    } ?: return@withContext Result.failure(IllegalStateException("No se pudo abrir el destino para guardar"))
+                    Result.success(count)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+            onComplete(result)
+        }
+    }
+
+    fun importCatalogBinaryFromUri(uri: Uri, replaceAll: Boolean, onComplete: (Result<Int>) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val resolver = getApplication<Application>().contentResolver
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: return@withContext Result.failure(IllegalStateException("No se pudo leer el archivo seleccionado"))
+                    repository.importCatalogBinary(bytes, replaceAll)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+            if (result.isSuccess && replaceAll) {
+                _selectedProductIds.value = emptySet()
+            }
+            onComplete(result)
+        }
     }
 
     /**

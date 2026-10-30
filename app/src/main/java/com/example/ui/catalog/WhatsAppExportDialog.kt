@@ -1,8 +1,8 @@
 package com.example.ui.catalog
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,17 +22,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,6 +42,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Product
+import com.example.ui.components.FastButton
+import com.example.ui.components.FastCheckBox
+import com.example.ui.components.FastChip
+import com.example.ui.components.FastOutlinedButton
 import com.example.ui.theme.BrandBlueContainer
 import com.example.ui.theme.BrandBluePrimary
 import com.example.ui.theme.Tipo1Verde
@@ -87,11 +84,6 @@ fun WhatsAppExportDialog(
 
     val dialogBg = MaterialTheme.colorScheme.surface
     val dialogTextColor = getContrastingTextColor(dialogBg)
-    val checkboxColors = CheckboxDefaults.colors(
-        checkedColor = BrandBluePrimary,
-        checkmarkColor = getContrastingTextColor(BrandBluePrimary),
-        uncheckedColor = dialogTextColor
-    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -129,88 +121,48 @@ fun WhatsAppExportDialog(
                     color = dialogTextColor
                 )
 
-                // Botones para elegir Texto Plano (TXT) o Imagen Render Monocroma
+                // Botones planos para elegir Texto Plano (TXT) o Imagen Render Monocroma
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val isTxt = exportFormat == CatalogExportFormat.PLAIN_TEXT
-                    val txtBg = if (isTxt) BrandBluePrimary else BrandBlueContainer
-                    val txtColor = getContrastingTextColor(txtBg)
-
-                    FilterChip(
+                    FastChip(
                         selected = isTxt,
                         onClick = { exportFormat = CatalogExportFormat.PLAIN_TEXT },
-                        label = {
-                            Text(
-                                text = "Texto Plano (TXT)",
-                                fontWeight = FontWeight.Bold,
-                                color = txtColor
-                            )
-                        },
-                        leadingIcon = {
+                        label = "Texto Plano (TXT)",
+                        selectedContainerColor = BrandBluePrimary,
+                        unselectedContainerColor = BrandBlueContainer,
+                        borderColor = BrandBluePrimary,
+                        leadingIcon = { tint ->
                             Icon(
                                 imageVector = if (isTxt) Icons.Default.Check else Icons.Default.Description,
                                 contentDescription = null,
-                                tint = txtColor,
+                                tint = tint,
                                 modifier = Modifier.size(16.dp)
                             )
                         },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = BrandBluePrimary,
-                            selectedLabelColor = getContrastingTextColor(BrandBluePrimary),
-                            containerColor = BrandBlueContainer,
-                            labelColor = getContrastingTextColor(BrandBlueContainer)
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = isTxt,
-                            borderColor = BrandBluePrimary,
-                            selectedBorderColor = BrandBluePrimary,
-                            borderWidth = 1.5.dp,
-                            selectedBorderWidth = 2.dp
-                        ),
                         modifier = Modifier
                             .weight(1f)
                             .testTag("export_format_txt")
                     )
 
                     val isImg = exportFormat == CatalogExportFormat.MONOCHROME_IMAGE
-                    val imgBg = if (isImg) BrandBluePrimary else BrandBlueContainer
-                    val imgColor = getContrastingTextColor(imgBg)
-
-                    FilterChip(
+                    FastChip(
                         selected = isImg,
                         onClick = { exportFormat = CatalogExportFormat.MONOCHROME_IMAGE },
-                        label = {
-                            Text(
-                                text = "Imagen Monocroma",
-                                fontWeight = FontWeight.Bold,
-                                color = imgColor
-                            )
-                        },
-                        leadingIcon = {
+                        label = "Imagen Monocroma",
+                        selectedContainerColor = BrandBluePrimary,
+                        unselectedContainerColor = BrandBlueContainer,
+                        borderColor = BrandBluePrimary,
+                        leadingIcon = { tint ->
                             Icon(
                                 imageVector = if (isImg) Icons.Default.Check else Icons.Default.Image,
                                 contentDescription = null,
-                                tint = imgColor,
+                                tint = tint,
                                 modifier = Modifier.size(16.dp)
                             )
                         },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = BrandBluePrimary,
-                            selectedLabelColor = getContrastingTextColor(BrandBluePrimary),
-                            containerColor = BrandBlueContainer,
-                            labelColor = getContrastingTextColor(BrandBlueContainer)
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = isImg,
-                            borderColor = BrandBluePrimary,
-                            selectedBorderColor = BrandBluePrimary,
-                            borderWidth = 1.5.dp,
-                            selectedBorderWidth = 2.dp
-                        ),
                         modifier = Modifier
                             .weight(1f)
                             .testTag("export_format_image")
@@ -225,20 +177,36 @@ fun WhatsAppExportDialog(
                     color = dialogTextColor
                 )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = includeCodigo, onCheckedChange = { includeCodigo = it }, colors = checkboxColors)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { includeCodigo = !includeCodigo }
+                ) {
+                    FastCheckBox(checked = includeCodigo, onCheckedChange = { includeCodigo = !includeCodigo }, uncheckedBorderColor = dialogTextColor)
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("Incluir Código", style = MaterialTheme.typography.bodyMedium, color = dialogTextColor, fontWeight = FontWeight.SemiBold)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = includeCosto, onCheckedChange = { includeCosto = it }, colors = checkboxColors)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { includeCosto = !includeCosto }
+                ) {
+                    FastCheckBox(checked = includeCosto, onCheckedChange = { includeCosto = !includeCosto }, uncheckedBorderColor = dialogTextColor)
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("Incluir Precio de Costo", style = MaterialTheme.typography.bodyMedium, color = dialogTextColor, fontWeight = FontWeight.SemiBold)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = includeVenta, onCheckedChange = { includeVenta = it }, colors = checkboxColors)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { includeVenta = !includeVenta }
+                ) {
+                    FastCheckBox(checked = includeVenta, onCheckedChange = { includeVenta = !includeVenta }, uncheckedBorderColor = dialogTextColor)
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("Incluir Precio de Venta", style = MaterialTheme.typography.bodyMedium, color = dialogTextColor, fontWeight = FontWeight.SemiBold)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = includeMargen, onCheckedChange = { includeMargen = it }, colors = checkboxColors)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { includeMargen = !includeMargen }
+                ) {
+                    FastCheckBox(checked = includeMargen, onCheckedChange = { includeMargen = !includeMargen }, uncheckedBorderColor = dialogTextColor)
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("Incluir % Margen", style = MaterialTheme.typography.bodyMedium, color = dialogTextColor, fontWeight = FontWeight.SemiBold)
                 }
 
@@ -272,7 +240,6 @@ fun WhatsAppExportDialog(
                         )
                     }
                 } else {
-                    // Monochrome Render Preview (White background, Black text, Black dividing lines)
                     val monoBg = Color.White
                     val monoText = Color(0xFF111111)
                     Column(
@@ -351,9 +318,7 @@ fun WhatsAppExportDialog(
             }
         },
         confirmButton = {
-            val sendBtnBg = Tipo1Verde
-            val sendBtnText = getContrastingTextColor(sendBtnBg)
-            Button(
+            FastButton(
                 enabled = !isGeneratingImage && selectedProducts.isNotEmpty(),
                 onClick = {
                     if (exportFormat == CatalogExportFormat.PLAIN_TEXT) {
@@ -382,12 +347,9 @@ fun WhatsAppExportDialog(
                         }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = sendBtnBg,
-                    contentColor = sendBtnText
-                ),
+                containerColor = Tipo1Verde,
                 modifier = Modifier.testTag("whatsapp_button_enviar")
-            ) {
+            ) { sendBtnText ->
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = sendBtnText)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
@@ -402,11 +364,12 @@ fun WhatsAppExportDialog(
             }
         },
         dismissButton = {
-            OutlinedButton(
+            FastOutlinedButton(
                 onClick = onDismiss,
-                border = BorderStroke(1.5.dp, BrandBluePrimary)
-            ) {
-                Text("Cancelar", color = dialogTextColor, fontWeight = FontWeight.Bold)
+                containerColor = dialogBg,
+                borderColor = BrandBluePrimary
+            ) { contentColor ->
+                Text("Cancelar", color = contentColor, fontWeight = FontWeight.Bold)
             }
         }
     )

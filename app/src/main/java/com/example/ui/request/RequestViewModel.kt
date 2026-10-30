@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.FastBinaryStore
 import com.example.data.model.PriceRequest
 import com.example.data.model.Product
+import com.example.data.model.VarietyStockItem
 import com.example.data.repository.ProductRepository
 import com.example.util.ImageUtils
 import com.example.util.MathUtils
@@ -24,6 +25,7 @@ import java.util.UUID
 @Immutable
 data class RequestUiState(
     val workplaceName: String = FastBinaryStore.DEFAULT_WORKPLACE_NAME,
+    val editingRequestId: String? = null,
     val selectedTipoId: Int = 1,
     val selectedProduct: Product? = null,
     val codigo: String = "",
@@ -42,11 +44,10 @@ data class RequestUiState(
     val validationError: String? = null,
     val isSuccess: Boolean = false,
     val generatedCompositeUri: Uri? = null,
-    val allProducts: List<Product> = emptyList(),
     val allRequests: List<PriceRequest> = emptyList(),
     val stockAnterior: String = "",
     val recargaStock: String = "",
-    val variedadesList: List<String> = emptyList()
+    val variedadesList: List<VarietyStockItem> = emptyList()
 )
 
 class RequestViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,11 +64,6 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         viewModelScope.launch {
-            repository.allProducts.collect { prods ->
-                _uiState.update { it.copy(allProducts = prods) }
-            }
-        }
-        viewModelScope.launch {
             repository.allRequests.collect { reqs ->
                 _uiState.update { it.copy(allRequests = reqs) }
             }
@@ -76,7 +72,6 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
 
     fun setTipoId(tipoId: Int) {
         _uiState.update { current ->
-            // In types 4 and 5, there is only one cost price; keep costoAnterior synced with costoNuevo if needed
             val singleCost = current.costoNuevo.toLongOrNull() ?: current.costoAnterior
             val vAnt = current.ventaAnteriorInput.toLongOrNull() ?: current.ventaAnterior
             val baseCostForAnt = if (tipoId in 4..5) singleCost else (current.costoAnteriorInput.toLongOrNull() ?: current.costoAnterior)
@@ -87,6 +82,13 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             current.copy(
                 selectedTipoId = tipoId,
                 porcentajeAnterior = newPctAnt,
+                // Al cambiar a Tipo 1 (producto nuevo), se limpia el stock anterior ya que no trae stock previo
+                stockAnterior = if (tipoId == 1) "" else current.stockAnterior,
+                variedadesList = if (tipoId == 1) {
+                    current.variedadesList.map { it.copy(stock = "") }
+                } else {
+                    current.variedadesList
+                },
                 validationError = null
             )
         }
@@ -103,8 +105,12 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             _uiState.update { current ->
                 val costoStr = product.precioCosto?.toString() ?: ""
                 val ventaStr = product.precioVenta?.toString() ?: ""
+                val presetPct = product.porcentajePersonalizado
+                    ?: antMargin?.takeIf { it in listOf(20, 25, 30, 35, 50) }
+                    ?: current.porcentajeDeseado
 
                 current.copy(
+                    editingRequestId = null,
                     selectedProduct = product,
                     codigo = product.codigo ?: "",
                     codigoProducto = product.codigo ?: "",
@@ -114,7 +120,7 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
                     ventaAnteriorInput = ventaStr,
                     ventaAnterior = product.precioVenta,
                     porcentajeAnterior = antMargin,
-                    porcentajeDeseado = antMargin ?: current.porcentajeDeseado,
+                    porcentajeDeseado = presetPct,
                     costoNuevo = costoStr,
                     ventaNueva = ventaStr,
                     porcentajeNuevo = antMargin,
@@ -124,6 +130,51 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
         } else {
             _uiState.update { it.copy(selectedProduct = null) }
         }
+    }
+
+    /**
+     * Carga una solicitud del historial en el estado del formulario para permitir
+     * re-editar todos sus datos y actualizar el registro existente sin guardar imágenes en el historial.
+     */
+    fun loadRequestForEditing(request: PriceRequest) {
+        val parsedVarieties = request.variedadesLista.map { line ->
+            VarietyStockItem.parseFromFormattedLine(line)
+        }
+        val codeStr = request.codigoEfectivo ?: ""
+        val cAntVal = request.precioCostoAnterior
+        val cNuevoStr = request.precioCostoNuevo.takeIf { it > 0L }?.toString() ?: ""
+        val vAntVal = request.precioVentaAnterior
+        val vNuevaStr = request.precioVentaNuevo.takeIf { it > 0L }?.toString() ?: ""
+
+        _uiState.update { current ->
+            current.copy(
+                editingRequestId = request.id,
+                selectedTipoId = request.tipoId,
+                selectedProduct = null,
+                codigo = codeStr,
+                codigoProducto = codeStr,
+                descripcion = request.descripcion,
+                porcentajeDeseado = request.porcentajeDeseado ?: 25,
+                costoAnteriorInput = cAntVal?.toString() ?: cNuevoStr,
+                costoAnterior = cAntVal,
+                costoNuevo = cNuevoStr,
+                ventaAnteriorInput = vAntVal?.toString() ?: "",
+                ventaAnterior = vAntVal,
+                porcentajeAnterior = request.porcentajeAnteriorRedondeado,
+                ventaNueva = vNuevaStr,
+                porcentajeNuevo = request.porcentajeNuevoRedondeado,
+                croppedBitmap169 = null,
+                stockAnterior = if (request.tipoId == 1) "" else (request.stockAnterior ?: ""),
+                recargaStock = request.recargaStock ?: "",
+                variedadesList = parsedVarieties,
+                validationError = null,
+                isSuccess = false
+            )
+        }
+    }
+
+    fun cancelEditing() {
+        resetForm()
     }
 
     fun onCodigoChanged(value: String) {
@@ -139,20 +190,60 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onStockAnteriorChanged(value: String) {
-        _uiState.update { it.copy(stockAnterior = value) }
+        _uiState.update { current ->
+            if (current.selectedTipoId == 1) current
+            else current.copy(stockAnterior = value)
+        }
     }
 
     fun onRecargaStockChanged(value: String) {
         _uiState.update { it.copy(recargaStock = value) }
     }
 
-    fun addVariety(name: String) {
-        val trimmed = name.trim()
-        if (trimmed.isNotBlank()) {
+    fun addVariety(name: String, stock: String = "", recarga: String = "") {
+        val trimmedName = name.trim()
+        if (trimmedName.isNotBlank()) {
             _uiState.update { current ->
-                if (!current.variedadesList.contains(trimmed)) {
-                    current.copy(variedadesList = current.variedadesList + trimmed)
+                val effectiveStock = if (current.selectedTipoId == 1) "" else stock.trim()
+                val effectiveRecarga = recarga.trim()
+                val exists = current.variedadesList.any {
+                    it.nombre.equals(trimmedName, ignoreCase = true)
+                }
+                if (!exists) {
+                    current.copy(
+                        variedadesList = current.variedadesList + VarietyStockItem(
+                            nombre = trimmedName,
+                            stock = effectiveStock,
+                            recarga = effectiveRecarga
+                        )
+                    )
                 } else current
+            }
+        }
+    }
+
+    fun updateVarietyStock(index: Int, stock: String) {
+        _uiState.update { current ->
+            if (current.selectedTipoId == 1 || index !in current.variedadesList.indices) {
+                current
+            } else {
+                val updated = current.variedadesList.toMutableList().apply {
+                    this[index] = this[index].copy(stock = stock)
+                }
+                current.copy(variedadesList = updated)
+            }
+        }
+    }
+
+    fun updateVarietyRecarga(index: Int, recarga: String) {
+        _uiState.update { current ->
+            if (index !in current.variedadesList.indices) {
+                current
+            } else {
+                val updated = current.variedadesList.toMutableList().apply {
+                    this[index] = this[index].copy(recarga = recarga)
+                }
+                current.copy(variedadesList = updated)
             }
         }
     }
@@ -232,8 +323,7 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             current.copy(
                 ventaAnteriorInput = digits,
                 ventaAnterior = vAnt,
-                porcentajeAnterior = marginAnt,
-                porcentajeDeseado = if (current.selectedTipoId in 4..5 && marginAnt != null) marginAnt else current.porcentajeDeseado
+                porcentajeAnterior = marginAnt
             )
         }
     }
@@ -251,16 +341,12 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
                 it.copy(
                     ventaAnteriorInput = autoVentaAnt.toString(),
                     ventaAnterior = autoVentaAnt,
-                    porcentajeAnterior = marginPct,
-                    porcentajeDeseado = if (it.selectedTipoId in 4..5) marginPct else it.porcentajeDeseado
+                    porcentajeAnterior = marginPct
                 )
             }
         } else {
             _uiState.update {
-                it.copy(
-                    porcentajeAnterior = marginPct,
-                    porcentajeDeseado = if (it.selectedTipoId in 4..5) marginPct else it.porcentajeDeseado
-                )
+                it.copy(porcentajeAnterior = marginPct)
             }
         }
     }
@@ -298,19 +384,21 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun getTipoTitle(tipoId: Int, porcentajeDeseado: Int): String {
-        val state = _uiState.value
-        val pctRef = state.porcentajeAnterior ?: porcentajeDeseado
         return when (tipoId) {
             1 -> "Este Producto Falta Registrar"
-            2 -> "El costo de este producto subio"
-            3 -> "El costo de este producto bajo"
-            4 -> "El precio de venta supera el $pctRef% sobre el costo"
-            5 -> "El precio de venta es menor que el $pctRef% sobre el costo"
+            2 -> "El costo de este producto subió"
+            3 -> "El costo de este producto bajó"
+            4 -> "El precio de venta excede el $porcentajeDeseado%"
+            5 -> "El precio de venta es inferior al $porcentajeDeseado%"
             else -> "Solicitud de Cambio de Precio"
         }
     }
 
-    fun validateAndSubmit(onReadyToShareImageOnly: (Uri) -> Unit) {
+    fun validateAndSubmit(
+        shareToWhatsApp: Boolean = true,
+        onSavedOnly: (() -> Unit)? = null,
+        onReadyToShareImageOnly: (Uri) -> Unit = {}
+    ) {
         val state = uiState.value
         val tipoId = state.selectedTipoId
 
@@ -376,20 +464,20 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
                     return
                 }
             }
-            4 -> { // Supera % (subida de venta sobre único costo)
-                val targetPct = pAnt ?: state.porcentajeDeseado
-                if (vAnt != null && vNueva <= vAnt && pNuevo <= targetPct) {
+            4 -> { // Excede % deseado (se solicita bajar el precio de venta respecto al anterior)
+                val targetPct = state.porcentajeDeseado
+                if (vAnt != null && vNueva >= vAnt) {
                     _uiState.update {
-                        it.copy(validationError = "El Precio de Venta Nuevo ($pNuevo%) debe superar al anterior ($targetPct%)")
+                        it.copy(validationError = "En Tipo 4 (excede el $targetPct%), el Precio de Venta Nuevo (Gs. ${MathUtils.formatearGuaranies(vNueva)}) debe ser menor al Precio de Venta Anterior (Gs. ${MathUtils.formatearGuaranies(vAnt)})")
                     }
                     return
                 }
             }
-            5 -> { // Menor que % (bajada de venta sobre único costo)
-                val targetPct = pAnt ?: state.porcentajeDeseado
-                if (vAnt != null && vNueva >= vAnt && pNuevo >= targetPct) {
+            5 -> { // Inferior al % deseado (se solicita subir el precio de venta respecto al anterior)
+                val targetPct = state.porcentajeDeseado
+                if (vAnt != null && vNueva <= vAnt) {
                     _uiState.update {
-                        it.copy(validationError = "El Precio de Venta Nuevo ($pNuevo%) debe ser menor al anterior ($targetPct%)")
+                        it.copy(validationError = "En Tipo 5 (inferior al $targetPct%), el Precio de Venta Nuevo (Gs. ${MathUtils.formatearGuaranies(vNueva)}) debe ser mayor al Precio de Venta Anterior (Gs. ${MathUtils.formatearGuaranies(vAnt)})")
                     }
                     return
                 }
@@ -398,12 +486,22 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
 
         _uiState.update { it.copy(validationError = null) }
 
-        val targetPctForTitle = pAnt ?: state.porcentajeDeseado
+        val targetPctForTitle = state.porcentajeDeseado
         val reqTitle = getTipoTitle(tipoId, targetPctForTitle)
-        val variedadesText = state.variedadesList.joinToString("\n").takeIf { it.isNotBlank() }
+        val includeStock = tipoId != 1
 
+        // Cada variedad se formatea con su propio Stock (solo si tipoId != 1 y fue declarado) y su propia Recarga (solo si fue declarada)
+        val variedadesText = state.variedadesList
+            .map { it.formatBulletLine(includeStock = includeStock) }
+            .filter { it.isNotBlank() }
+            .joinToString("\n")
+            .takeIf { it.isNotBlank() }
+
+        // Si se está editando una solicitud del historial, se conserva su ID para actualizar el registro en su lugar.
+        // No se guardan imágenes en el historial.
+        val requestId = state.editingRequestId ?: UUID.randomUUID().toString()
         val priceRequest = PriceRequest(
-            id = UUID.randomUUID().toString(),
+            id = requestId,
             timestamp = System.currentTimeMillis(),
             tipoId = tipoId,
             titulo = reqTitle,
@@ -418,12 +516,20 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             porcentajeAnteriorRedondeado = pAnt,
             precioVentaNuevo = vNueva,
             porcentajeNuevoRedondeado = pNuevo,
-            stockAnterior = state.stockAnterior.trim().takeIf { it.isNotBlank() },
+            stockAnterior = if (includeStock) state.stockAnterior.trim().takeIf { it.isNotBlank() } else null,
             recargaStock = state.recargaStock.trim().takeIf { it.isNotBlank() },
             variedadesMismoCosto = variedadesText
         )
 
         viewModelScope.launch {
+            repository.savePriceRequest(priceRequest)
+
+            if (!shareToWhatsApp) {
+                resetForm()
+                onSavedOnly?.invoke()
+                return@launch
+            }
+
             val imageUri = withContext(Dispatchers.Default) {
                 val compositeBitmap = ImageUtils.generateInfographicBitmap(
                     photo16by9 = state.croppedBitmap169,
@@ -435,21 +541,17 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
             }
 
             if (imageUri != null) {
-                val finalRequest = priceRequest.copy(imagenCompuestaUri = imageUri.toString())
-                repository.savePriceRequest(finalRequest)
-
                 _uiState.update {
                     it.copy(
+                        editingRequestId = null,
                         generatedCompositeUri = imageUri,
                         isSuccess = true
                     )
                 }
-
-                // Mandate Block 5: Share ONLY the generated image (without text)
                 onReadyToShareImageOnly(imageUri)
             } else {
                 _uiState.update {
-                    it.copy(validationError = "Error al guardar la imagen en el dispositivo")
+                    it.copy(validationError = "Error al generar la imagen para compartir")
                 }
             }
         }
@@ -459,7 +561,6 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update {
             RequestUiState(
                 workplaceName = it.workplaceName,
-                allProducts = it.allProducts,
                 allRequests = it.allRequests
             )
         }
@@ -468,6 +569,42 @@ class RequestViewModel(application: Application) : AndroidViewModel(application)
     fun deleteRequest(request: PriceRequest) {
         viewModelScope.launch {
             repository.deletePriceRequest(request)
+        }
+    }
+
+    fun exportRequestsBinaryToUri(uri: Uri, onComplete: (Result<Int>) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val bytes = repository.exportRequestsBinary()
+                    val count = uiState.value.allRequests.size
+                    val resolver = getApplication<Application>().contentResolver
+                    resolver.openOutputStream(uri)?.use { out ->
+                        out.write(bytes)
+                        out.flush()
+                    } ?: return@withContext Result.failure(IllegalStateException("No se pudo abrir el destino para guardar"))
+                    Result.success(count)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+            onComplete(result)
+        }
+    }
+
+    fun importRequestsBinaryFromUri(uri: Uri, replaceAll: Boolean, onComplete: (Result<Int>) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val resolver = getApplication<Application>().contentResolver
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: return@withContext Result.failure(IllegalStateException("No se pudo leer el archivo seleccionado"))
+                    repository.importRequestsBinary(bytes, replaceAll)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+            onComplete(result)
         }
     }
 }
