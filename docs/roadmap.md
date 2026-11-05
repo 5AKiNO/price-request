@@ -1,30 +1,24 @@
 # Hoja de Ruta del Proyecto
 
-Este documento presenta los hitos ya incorporados en la aplicación y las líneas de evolución previstas para futuras versiones.
+Este documento presenta la evolución cronológica de **Sistema de Precios** desde su versión inicial hasta la arquitectura actual y las mejoras previstas para próximas entregas.
 
-## Hitos Completados (`v1.0` a `v1.4`)
+## Hitos Completados (`v1.0.0` a `v2.6.0`)
 
-- [x] **Motor de persistencia binaria (`FastBinaryStore`)**: Sustitución de bases de datos pesadas por lectura/escritura secuencial con renombrado atómico `.tmp`.
-- [x] **Estructura de código aplanada en `com.example` e interfaz de componentes planos sobre grilla de `8.dp` (`FastComponents`)**: Todos los archivos Kotlin organizados directamente en `app/src/main/java/com/example/`, superficies de color sólido sin bordes ni líneas divisorias, barra de navegación continua de iconos y tipografía general Times New Roman (`R.font.tinos`).
-- [x] **Cinco modalidades de solicitud con reglas de validación y paleta de 5 colores**: Cobertura para productos sin registrar, subas/bajas de costo y correcciones de margen por exceso o defecto.
-- [x] **Módulo de Boleta de Distribuidor con almacenamiento de los 5 tipos de solicitud**:
-  - Creación directa desde la pestaña **Solicitud** con el botón **Guardar en Boleta del Distribuidor** sin necesidad de abrir WhatsApp, avanzando automáticamente el número de fila (`ordenFila`).
-  - Visualización en tarjetas con los 5 colores por tipo de solicitud, filtro rápido por tipo (`1` a `5`) y edición rápida en línea.
-  - Selección de filas con **doble toque** para renderizar y enviar por WhatsApp una tabla monocroma con el título del tipo de solicitud y el desglose completo de precios, stock y variedades.
-  - Plantillas reutilizables desde el Catálogo y sincronización de precios en un toque hacia el Catálogo general.
-- [x] **Soporte de variedades con mismo costo**: Declaración individual de stock y recarga por variedad con numeración automática.
-- [x] **Re-edición de solicitudes desde el Historial**: Carga completa en el formulario de Solicitud y actualización en el mismo lugar sin duplicar registros ni almacenar fotografías en el historial.
-- [x] **Exportación multimodal**: Fichas `16:9` (`1280x720 px`), texto plano (`TXT`), imágenes monocromas de tabla e intercambio de respaldos `.bin` (`FBC1`, `FBD2`, `STR3`) con fusión o reemplazo.
+- [x] **`v1.0.0` (Base de Catálogo y Redondeo Comercial)**: Catálogo móvil de precios en Guaraníes, cálculo de porcentajes con redondeo `HALF_UP`, redondeo comercial a múltiplos de `500 Gs.` y exportación básica de fichas por WhatsApp.
+- [x] **`v2.0.0` (Motor `FastBinaryStore` y Cinco Flujos de Solicitud)**: Reemplazo de base de datos relacional por persistencia binaria directa con colas `Channel.CONFLATED` y escritura atómica con `fsync`; buscador multicriterio por tokens con preservación de la letra `ñ`; e implementación de los 5 tipos de solicitud con contabilización individual por variedad (`VarietyStockItem`).
+- [x] **`v2.2.0` (Primitivas `FastComponents`, Render Monocromo `RGB_565` y Binarios V2)**: Creación de `FastTextField`, `FastChip`, `FastButton`, `FastOutlinedButton` y `FastCheckBox`; exportación de imágenes monocromas `RGB_565` de alto contraste; y soporte de respaldos `.bin` (`STP2`, `STR2`, `STC2`) con modos **Fusionar** y **Reemplazar todo**.
+- [x] **`v2.4.0` (Re-edición en Historial, Escala de `35%` y Limpieza de ORM)**: Botón `Editar` en Historial con doble acción (`Guardar Cambios en Historial` y `Actualizar y Enviar a WhatsApp`), componente `FastNavIconItem` de solo icono, sustitución de `40%` por `35%`, eliminación de imágenes persistentes en Historial y remoción de librerías ORM/red en desuso.
+- [x] **`v2.5.0` (Boleta de Distribuidor con los 5 Tipos de Solicitud y Paquete Plano `com.example`)**: Cuarta sección principal para administrar boletas por proveedor ordenadas por fila (`ordenFila`), almacenamiento y filtrado de los 5 tipos de solicitud con sus 5 colores, botón directo `Guardar en Boleta del Distribuidor` desde `RequestScreen`, selección con **doble toque** para render monocromo a WhatsApp, sincronización al Catálogo general y tipografía Times New Roman (`R.font.tinos`).
+- [x] **`v2.6.0` (Optimizaciones de Bajo Nivel Estilo WebAssembly)**: Tabla `O(1)` `LATIN1_LUT` para normalización sin asignaciones innecesarias, formateador entero de Guaraníes sin `DecimalFormat`, búsqueda pretokenizada única por consulta, empaquetado por máscara de bits (`STP3`, `STR4`, `FBD3`) con buffer lineal reutilizable y cálculo de luminancia entera por desplazamiento de bits.
 
 ## Próximas Mejoras Planificadas
 
-### Corto Plazo (`v1.5`)
+### Corto Plazo (`v2.7.0`)
 
-- [ ] **Filtro por rango de fechas en Historial**: Facilitar la búsqueda de ajustes realizados en un turno o semana específica.
-- [ ] **Comparador histórico de costos por distribuidor**: Visualizar la evolución de costos de un mismo artículo entre distintas boletas cargadas a lo largo del mes.
+- [ ] **Filtro por rango de fechas en Historial**: Facilitar la consulta de solicitudes emitidas en un turno o semana determinada.
+- [ ] **Comparador histórico de costos por distribuidor**: Visualizar la variación de costos de un mismo artículo entre distintas cargas de boleta de un proveedor.
 
-### Mediano Plazo (`v1.6`)
+### Mediano Plazo (`v2.8.0`)
 
-- [ ] **Lectura rápida de códigos de barras con cámara**: Integración ligera para completar el campo `Código del Producto` escaneando el envase desde el Catálogo, la Boleta de Distribuidor o la pantalla de Solicitud.
-- [ ] **Ajuste masivo de precios por lote**: Herramienta para aplicar una variación porcentual a todas las filas de un distribuidor y recalcular sus ventas sugeridas en serie.
-- [ ] **Impresión térmica Bluetooth ESC/POS opcional**: Envío directo de reportes monocromos a impresoras portátiles de salón o depósito.
+- [ ] **Lectura rápida de códigos de barras con cámara**: Escaneo directo para completar el campo `Código` en Catálogo, Solicitud y Boleta de Distribuidor.
+- [ ] **Ajuste porcentual por lote en Boleta de Distribuidor**: Aplicación de un porcentaje de incremento o descuento a todas las filas seleccionadas de un proveedor en una sola operación.
