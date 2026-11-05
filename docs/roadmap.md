@@ -1,40 +1,30 @@
-# Hoja de Ruta del Producto (Roadmap)
+# Hoja de Ruta del Proyecto
 
-Este documento presenta la evolución de **Sistema de Precios**, los hitos ya entregados en producción y las líneas de trabajo planificadas para futuras versiones manteniendo el compromiso de bajo consumo de memoria RAM.
+Este documento presenta los hitos ya incorporados en la aplicación y las líneas de evolución previstas para futuras versiones.
 
----
+## Hitos Completados (`v1.0` a `v1.4`)
 
-## 1. Hitos Completados
+- [x] **Motor de persistencia binaria (`FastBinaryStore`)**: Sustitución de bases de datos pesadas por lectura/escritura secuencial con renombrado atómico `.tmp`.
+- [x] **Estructura de código aplanada en `com.example` e interfaz de componentes planos sobre grilla de `8.dp` (`FastComponents`)**: Todos los archivos Kotlin organizados directamente en `app/src/main/java/com/example/`, superficies de color sólido sin bordes ni líneas divisorias, barra de navegación continua de iconos y tipografía general Times New Roman (`R.font.tinos`).
+- [x] **Cinco modalidades de solicitud con reglas de validación y paleta de 5 colores**: Cobertura para productos sin registrar, subas/bajas de costo y correcciones de margen por exceso o defecto.
+- [x] **Módulo de Boleta de Distribuidor con almacenamiento de los 5 tipos de solicitud**:
+  - Creación directa desde la pestaña **Solicitud** con el botón **Guardar en Boleta del Distribuidor** sin necesidad de abrir WhatsApp, avanzando automáticamente el número de fila (`ordenFila`).
+  - Visualización en tarjetas con los 5 colores por tipo de solicitud, filtro rápido por tipo (`1` a `5`) y edición rápida en línea.
+  - Selección de filas con **doble toque** para renderizar y enviar por WhatsApp una tabla monocroma con el título del tipo de solicitud y el desglose completo de precios, stock y variedades.
+  - Plantillas reutilizables desde el Catálogo y sincronización de precios en un toque hacia el Catálogo general.
+- [x] **Soporte de variedades con mismo costo**: Declaración individual de stock y recarga por variedad con numeración automática.
+- [x] **Re-edición de solicitudes desde el Historial**: Carga completa en el formulario de Solicitud y actualización en el mismo lugar sin duplicar registros ni almacenar fotografías en el historial.
+- [x] **Exportación multimodal**: Fichas `16:9` (`1280x720 px`), texto plano (`TXT`), imágenes monocromas de tabla e intercambio de respaldos `.bin` (`FBC1`, `FBD2`, `STR3`) con fusión o reemplazo.
 
-### Fase 1: Núcleo Comercial y Cálculo de Márgenes (Completado)
-- [x] Gestión local de catálogo con código principal, código alternativo, descripción, costo y precio de venta.
-- [x] Cálculo automático de precio de venta con redondeo comercial al múltiplo de `500` superior.
-- [x] Los 5 flujos de Solicitud de Cambio de Precios (Falta Registrar, Costo Subió, Costo Bajó, Excede % deseado, Inferior al % deseado).
-- [x] Contabilización desglosada por variedad (`Stock` y `Recarga` opcionales por ítem).
+## Próximas Mejoras Planificadas
 
-### Fase 2: Motor Binario V2 y Exportación Dual (Completado)
-- [x] Reemplazo de almacenamiento relacional pesado por `FastBinaryStore` (`.bin` con escritura atómica `fsync` y colas `Channel.CONFLATED`).
-- [x] Importación y exportación de respaldos `.bin` con opciones **Fusionar** y **Reemplazar todo**.
-- [x] Exportación a WhatsApp en **Texto Plano (TXT)** y en **Imagen Render Monocroma (`RGB_565`)**.
-- [x] Buscador multicriterio instantáneo por tokens con preservación de la letra `ñ`.
+### Corto Plazo (`v1.5`)
 
-### Fase 3: Interfaz Plana de Costo Cero y Re-edición de Historial (Completado - v2.4.0)
-- [x] Sustitución de componentes pesados por primitivas planas (`FastTextField`, `FastChip`, `FastButton`, `FastCheckBox`, `FastNavIconItem`).
-- [x] Actualización de la escala de márgenes comerciales a `20%`, `25%`, `30%`, `35%` y `50%` (incluyendo filtros rápidos de `30%` y `35%` en el catálogo).
-- [x] Corrección de reglas de validación en Solicitudes Tipo 4 (`Venta Nueva < Venta Anterior`) y Tipo 5 (`Venta Nueva > Venta Anterior`).
-- [x] Barra de navegación principal de solo iconos sin texto.
-- [x] Re-edición completa de solicitudes desde el Historial actualizando el registro existente en su lugar.
-- [x] Eliminación de imágenes en el Historial y limpieza total de dependencias externas no utilizadas (`Room`, `KSP`, `Retrofit`, `OkHttp`, `Moshi`, `Coil`, `Firebase`).
+- [ ] **Filtro por rango de fechas en Historial**: Facilitar la búsqueda de ajustes realizados en un turno o semana específica.
+- [ ] **Comparador histórico de costos por distribuidor**: Visualizar la evolución de costos de un mismo artículo entre distintas boletas cargadas a lo largo del mes.
 
----
+### Mediano Plazo (`v1.6`)
 
-## 2. Próximos Hitos Planificados
-
-### Corto Plazo (`v2.5.x`)
-- [ ] **Ajuste masivo de precios por lote en Catálogo**: Permitir aplicar un nuevo porcentaje (`20%`, `25%`, `30%`, `35%`, `50%`) a todos los productos seleccionados en una sola acción atómica.
-- [ ] **Filtro por rango de fecha en Historial**: Filtrar solicitudes del día actual, últimos 7 días o mes en curso sin recargar toda la lista.
-- [ ] **Detección de códigos duplicados al vuelo**: Aviso instantáneo dentro de `ProductDialog` mientras se escribe un código que ya pertenece a otro artículo.
-
-### Mediano Plazo (`v2.6.x`)
-- [ ] **Importación directa desde texto tabulado (CSV/TSV ligero)**: Parser en streaming con buffer de `8 KB` para migrar planillas de proveedores directamente al formato `.bin` sin usar librerías externas.
-- [ ] **Plantillas de encabezado personalizables por sucursal**: Cambio rápido entre varios nombres de local o depósitos configurados.
+- [ ] **Lectura rápida de códigos de barras con cámara**: Integración ligera para completar el campo `Código del Producto` escaneando el envase desde el Catálogo, la Boleta de Distribuidor o la pantalla de Solicitud.
+- [ ] **Ajuste masivo de precios por lote**: Herramienta para aplicar una variación porcentual a todas las filas de un distribuidor y recalcular sus ventas sugeridas en serie.
+- [ ] **Impresión térmica Bluetooth ESC/POS opcional**: Envío directo de reportes monocromos a impresoras portátiles de salón o depósito.

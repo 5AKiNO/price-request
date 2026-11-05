@@ -1,39 +1,29 @@
 # Política de Seguridad
 
-## Alcance y Arquitectura Offline-First
+## Alcance y Modelo de Seguridad
 
-**Sistema de Precios** está diseñado como una aplicación Android 100% local (*offline-first*):
-- No realiza conexiones a servidores externos ni transmite catálogos o precios por internet de forma autónoma.
-- No solicita permisos invasivos de almacenamiento global; utiliza el selector de documentos del sistema (`Storage Access Framework`) para importar/exportar respaldos `.bin` y el selector nativo (`PickVisualMedia`) cuando se adjunta una fotografía temporal para WhatsApp.
-- La compartición de archivos temporales con WhatsApp se realiza exclusivamente a través de `FileProvider` con permisos temporales por URI (`FLAG_GRANT_READ_URI_PERMISSION`).
+Esta aplicación opera de forma local en el dispositivo Android sin servidores remotos, cuentas en la nube ni transmisión automática de telemetría. Los aspectos principales de seguridad del proyecto comprenden:
 
----
+1. **Integridad de archivos binarios (`.bin`)**: El motor `FastBinaryStore` valida encabezados mágicos (`FBC1` para catálogo y `FBR2`/`FBR1` para historial) y límites de cantidad de registros (`0..200.000` productos y `0..100.000` solicitudes) antes de reservar memoria en colecciones, previniendo desbordamientos de memoria (`OutOfMemoryError`) ante archivos corruptos o manipulados.
+2. **Aislamiento de archivos compartidos (`FileProvider`)**: Las imágenes generadas para WhatsApp se escriben en el subdirectorio privado `cacheDir/shared_images` y se exponen temporalmente mediante permisos de URI de lectura (`FLAG_GRANT_READ_URI_PERMISSION`) sin requerir permisos de almacenamiento global.
+3. **Permisos de mínimo privilegio**: La aplicación solo solicita el permiso de `CAMERA` en tiempo de ejecución cuando el operador pulsa el botón de cámara, y utiliza el selector nativo de medios de Android (`PickVisualMedia`) para abrir imágenes de galería sin pedir permisos de lectura sobre todo el almacenamiento del teléfono.
 
 ## Versiones Soportadas
 
 | Versión | Estado de Soporte |
 | :--- | :--- |
-| `2.4.x` | Soportada activamente |
-| `< 2.4.0` | Sin soporte de parches (se recomienda actualizar a `2.4.0`) |
-
----
-
-## Áreas Sensibles de Seguridad
-
-1. **Deserialización de archivos `.bin` (`FastBinaryStore.kt`)**:
-   - La lectura de archivos binarios valida las cabeceras mágicas (`STP2`, `STR2`, `STC2`), verifica límites máximos de registros (`500.000` productos / `100.000` solicitudes) y acota la longitud máxima de cada cadena (`maxLength`) para prevenir ataques de agotamiento de memoria (*Out-Of-Memory*) mediante archivos `.bin` corruptos o manipulados.
-2. **Exposición de Archivos Temporales (`FileProvider`)**:
-   - Solo el subdirectorio de caché de exportación se comparte temporalmente al invocar el `Intent.ACTION_SEND`.
-
----
+| `1.3.x` | Soportada con actualizaciones de seguridad |
+| `< 1.3.0` | Sin soporte activo (se recomienda actualizar a la última versión) |
 
 ## Cómo Reportar una Vulnerabilidad
 
-Si detectas un fallo que permita corromper el almacenamiento binario, provocar un cierre inesperado mediante un archivo `.bin` malformado o comprometer el aislamiento de `FileProvider`:
+Si detectas un problema de seguridad (por ejemplo, un archivo `.bin` malformado capaz de bloquear la aplicación o un problema de permisos en el `FileProvider`):
 
-1. **No abras un Issue público con el archivo de explotación adjunto.**
-2. Envía un reporte detallado al titular del repositorio indicando:
-   - Descripción técnica del vector (por ejemplo, desbordamiento en lectura de `DataInputStream`).
-   - Pasos exactos para reproducirlo.
-   - Propuesta de mitigación si dispones de ella.
-3. Recibirás confirmación de recepción y evaluación técnica en un plazo máximo de 7 días hábiles.
+1. **No publiques el archivo de explotación en un issue público** si puede afectar a otros usuarios.
+2. Comunícate de forma privada con el mantenedor del repositorio a través de los canales de contacto del perfil de GitHub o abre un reporte de seguridad privado en la pestaña **Security -> Advisories** del repositorio.
+3. Incluye en tu reporte:
+   - Descripción técnica del fallo y el componente afectado (`FastBinaryStore`, `ImageUtils`, `UniversalTakePictureContract`, etc.).
+   - Pasos detallados para reproducir el comportamiento.
+   - Versión de Android y modelo de dispositivo donde se verificó.
+
+Recibirás una respuesta inicial en un plazo estimado de 7 días hábiles con la evaluación del reporte y el plan de corrección.

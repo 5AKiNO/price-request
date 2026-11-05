@@ -30,14 +30,13 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,27 +49,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.ui.catalog.CatalogScreen
-import com.example.ui.catalog.CatalogViewModel
-import com.example.ui.components.FastNavIconItem
-import com.example.ui.request.RequestHistoryScreen
-import com.example.ui.request.RequestScreen
-import com.example.ui.request.RequestViewModel
-import com.example.ui.theme.AppPricingTheme
-import com.example.ui.theme.BrandBlueContainer
-import com.example.ui.theme.BrandBluePrimary
-import com.example.ui.theme.getContrastingTextColor
 
 enum class AppScreen {
     CATALOGO,
     NUEVA_SOLICITUD,
-    HISTORIAL
+    HISTORIAL,
+    DISTRIBUIDOR
 }
 
 class MainActivity : ComponentActivity() {
 
     private val catalogViewModel: CatalogViewModel by viewModels()
     private val requestViewModel: RequestViewModel by viewModels()
+    private val distributorViewModel: DistributorViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,7 +71,8 @@ class MainActivity : ComponentActivity() {
             AppPricingTheme {
                 MainAppRoot(
                     catalogViewModel = catalogViewModel,
-                    requestViewModel = requestViewModel
+                    requestViewModel = requestViewModel,
+                    distributorViewModel = distributorViewModel
                 )
             }
         }
@@ -90,7 +82,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppRoot(
     catalogViewModel: CatalogViewModel,
-    requestViewModel: RequestViewModel
+    requestViewModel: RequestViewModel,
+    distributorViewModel: DistributorViewModel
 ) {
     var currentScreen by remember { mutableStateOf(AppScreen.CATALOGO) }
     val catalogState by catalogViewModel.uiState.collectAsStateWithLifecycle()
@@ -102,8 +95,8 @@ fun MainAppRoot(
     val topBarBg = BrandBluePrimary
     val topBarTextColor = getContrastingTextColor(topBarBg)
 
-    val navBarBg = MaterialTheme.colorScheme.surface
-    val navIndicatorBg = BrandBlueContainer
+    val navBarBg = BrandBlueContainer
+    val navSelectedBg = BrandBluePrimary
 
     val screenBg = MaterialTheme.colorScheme.background
     val screenTextColor = getContrastingTextColor(screenBg)
@@ -116,14 +109,13 @@ fun MainAppRoot(
             containerColor = screenBg,
             contentColor = screenTextColor,
             topBar = {
-                // Barra superior plana y compacta de una sola línea
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(topBarBg)
                         .windowInsetsPadding(WindowInsets.statusBars)
                         .height(48.dp)
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -140,7 +132,7 @@ fun MainAppRoot(
                             imageVector = Icons.Default.Storefront,
                             contentDescription = null,
                             tint = topBarTextColor,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -160,75 +152,80 @@ fun MainAppRoot(
                             catalogViewModel.openWorkplaceDialog()
                         },
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .testTag("top_bar_edit_workplace_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Cambiar nombre del local",
                             tint = topBarTextColor,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
             },
             bottomBar = {
                 if (!isWideScreen) {
-                    // Barra de navegación inferior plana y ligera de solo iconos (sin textos)
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(navBarBg)
                             .windowInsetsPadding(WindowInsets.navigationBars)
+                            .height(48.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        HorizontalDivider(thickness = 1.dp, color = BrandBluePrimary.copy(alpha = 0.25f))
-                        Row(
+                        FastNavIconItem(
+                            selected = currentScreen == AppScreen.CATALOGO,
+                            onClick = { currentScreen = AppScreen.CATALOGO },
+                            icon = Icons.Default.Inventory2,
+                            contentDescription = "Catálogo",
+                            selectedContainerColor = navSelectedBg,
+                            unselectedContainerColor = navBarBg,
+                            borderColor = BrandBluePrimary,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            FastNavIconItem(
-                                selected = currentScreen == AppScreen.CATALOGO,
-                                onClick = { currentScreen = AppScreen.CATALOGO },
-                                icon = Icons.Default.Inventory2,
-                                contentDescription = "Catálogo",
-                                selectedContainerColor = navIndicatorBg,
-                                unselectedContainerColor = navBarBg,
-                                borderColor = BrandBluePrimary,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("nav_item_catalogo")
-                            )
+                                .weight(1f)
+                                .testTag("nav_item_catalogo")
+                        )
 
-                            FastNavIconItem(
-                                selected = currentScreen == AppScreen.NUEVA_SOLICITUD,
-                                onClick = { currentScreen = AppScreen.NUEVA_SOLICITUD },
-                                icon = Icons.Default.AddPhotoAlternate,
-                                contentDescription = "Solicitud",
-                                selectedContainerColor = navIndicatorBg,
-                                unselectedContainerColor = navBarBg,
-                                borderColor = BrandBluePrimary,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("nav_item_solicitud")
-                            )
+                        FastNavIconItem(
+                            selected = currentScreen == AppScreen.NUEVA_SOLICITUD,
+                            onClick = { currentScreen = AppScreen.NUEVA_SOLICITUD },
+                            icon = Icons.Default.AddPhotoAlternate,
+                            contentDescription = "Solicitud",
+                            selectedContainerColor = navSelectedBg,
+                            unselectedContainerColor = navBarBg,
+                            borderColor = BrandBluePrimary,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("nav_item_solicitud")
+                        )
 
-                            FastNavIconItem(
-                                selected = currentScreen == AppScreen.HISTORIAL,
-                                onClick = { currentScreen = AppScreen.HISTORIAL },
-                                icon = Icons.Default.History,
-                                contentDescription = "Historial",
-                                selectedContainerColor = navIndicatorBg,
-                                unselectedContainerColor = navBarBg,
-                                borderColor = BrandBluePrimary,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("nav_item_historial")
-                            )
-                        }
+                        FastNavIconItem(
+                            selected = currentScreen == AppScreen.HISTORIAL,
+                            onClick = { currentScreen = AppScreen.HISTORIAL },
+                            icon = Icons.Default.History,
+                            contentDescription = "Historial",
+                            selectedContainerColor = navSelectedBg,
+                            unselectedContainerColor = navBarBg,
+                            borderColor = BrandBluePrimary,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("nav_item_historial")
+                        )
+
+                        FastNavIconItem(
+                            selected = currentScreen == AppScreen.DISTRIBUIDOR,
+                            onClick = { currentScreen = AppScreen.DISTRIBUIDOR },
+                            icon = Icons.Default.LocalShipping,
+                            contentDescription = "Distribuidor",
+                            selectedContainerColor = navSelectedBg,
+                            unselectedContainerColor = navBarBg,
+                            borderColor = BrandBluePrimary,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("nav_item_distribuidor")
+                        )
                     }
                 }
             }
@@ -239,22 +236,20 @@ fun MainAppRoot(
                     .padding(innerPadding)
             ) {
                 if (isWideScreen) {
-                    // Barra lateral plana y ligera de solo iconos (sin textos)
                     Column(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .width(60.dp)
-                            .background(navBarBg)
-                            .padding(vertical = 12.dp, horizontal = 6.dp),
+                            .width(64.dp)
+                            .background(navBarBg),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.Top
                     ) {
                         FastNavIconItem(
                             selected = currentScreen == AppScreen.CATALOGO,
                             onClick = { currentScreen = AppScreen.CATALOGO },
                             icon = Icons.Default.Inventory2,
                             contentDescription = "Catálogo",
-                            selectedContainerColor = navIndicatorBg,
+                            selectedContainerColor = navSelectedBg,
                             unselectedContainerColor = navBarBg,
                             borderColor = BrandBluePrimary,
                             modifier = Modifier
@@ -267,7 +262,7 @@ fun MainAppRoot(
                             onClick = { currentScreen = AppScreen.NUEVA_SOLICITUD },
                             icon = Icons.Default.AddPhotoAlternate,
                             contentDescription = "Solicitud",
-                            selectedContainerColor = navIndicatorBg,
+                            selectedContainerColor = navSelectedBg,
                             unselectedContainerColor = navBarBg,
                             borderColor = BrandBluePrimary,
                             modifier = Modifier
@@ -280,15 +275,27 @@ fun MainAppRoot(
                             onClick = { currentScreen = AppScreen.HISTORIAL },
                             icon = Icons.Default.History,
                             contentDescription = "Historial",
-                            selectedContainerColor = navIndicatorBg,
+                            selectedContainerColor = navSelectedBg,
                             unselectedContainerColor = navBarBg,
                             borderColor = BrandBluePrimary,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("nav_item_historial")
                         )
+
+                        FastNavIconItem(
+                            selected = currentScreen == AppScreen.DISTRIBUIDOR,
+                            onClick = { currentScreen = AppScreen.DISTRIBUIDOR },
+                            icon = Icons.Default.LocalShipping,
+                            contentDescription = "Distribuidor",
+                            selectedContainerColor = navSelectedBg,
+                            unselectedContainerColor = navBarBg,
+                            borderColor = BrandBluePrimary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("nav_item_distribuidor")
+                        )
                     }
-                    VerticalDivider(thickness = 1.dp, color = BrandBluePrimary.copy(alpha = 0.25f))
                 }
 
                 Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
@@ -308,6 +315,11 @@ fun MainAppRoot(
                                 viewModel = requestViewModel,
                                 onEditSavedToHistory = {
                                     currentScreen = AppScreen.HISTORIAL
+                                },
+                                onSavedToDistributorBoleta = { wasEditingRow ->
+                                    if (wasEditingRow) {
+                                        currentScreen = AppScreen.DISTRIBUIDOR
+                                    }
                                 }
                             )
                         }
@@ -317,6 +329,20 @@ fun MainAppRoot(
                                 viewModel = requestViewModel,
                                 onEditRequest = { requestToEdit ->
                                     requestViewModel.loadRequestForEditing(requestToEdit)
+                                    currentScreen = AppScreen.NUEVA_SOLICITUD
+                                }
+                            )
+                        }
+
+                        AppScreen.DISTRIBUIDOR -> {
+                            DistributorScreen(
+                                viewModel = distributorViewModel,
+                                onNavigateToNewRequestForDistributor = { distId ->
+                                    requestViewModel.prepareNewRequestForDistributor(distId)
+                                    currentScreen = AppScreen.NUEVA_SOLICITUD
+                                },
+                                onNavigateToRequestWithDistributorItem = { distId, item ->
+                                    requestViewModel.loadFromDistributorItem(distId, item)
                                     currentScreen = AppScreen.NUEVA_SOLICITUD
                                 }
                             )

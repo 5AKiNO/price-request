@@ -2,20 +2,22 @@
 
 ## Nuestro Compromiso
 
-Quienes mantenemos y colaboramos en **Sistema de Precios** nos comprometemos a preservar un entorno de trabajo técnico, respetuoso, constructivo y enfocado en resolver problemas reales de operación comercial y rendimiento en Android.
+Nos comprometemos a mantener un espacio de colaboración respetuoso, técnico y constructivo para todas las personas que utilizan el software, reportan errores, proponen mejoras o revisan código, independientemente de su nivel de experiencia, origen o rol dentro de un comercio o equipo de desarrollo.
 
-## Comportamiento Esperado
+## Comportamientos Esperados
 
-- Mantener discusiones técnicas objetivas, claras y centradas en el código, la experiencia de usuario en tienda y el rendimiento en dispositivos modestos.
-- Aportar reportes de errores reproducibles con datos concretos (tipo de solicitud, valores de costo/venta probados, versión de Android).
-- Respetar las restricciones de diseño del proyecto (interfaz plana de baja latencia, operación 100% offline y licencia de uso no comercial).
+- Mantener un lenguaje claro, objetivo y centrado en los aspectos técnicos u operativos del proyecto.
+- Aportar reportes de errores con datos verificables (pasos de reproducción, valores de entrada en Guaraníes y resultado observado).
+- Respetar el tiempo de los demás colaboradores y las decisiones de arquitectura orientadas a la simplicidad y el bajo consumo de recursos.
+- Aceptar críticas constructivas sobre el código y ofrecer sugerencias fundamentadas en las revisiones.
 
-## Comportamiento Inaceptable
+## Comportamientos Inaceptables
 
-- Acoso, ataques personales o lenguaje despectivo en incidencias (*Issues*), revisiones de código (*Pull Requests*) o discusiones.
-- Publicación de datos comerciales privados de terceros (listas de costos reales o información sensible de comercios) en reportes públicos.
-- Intentos de eliminar los avisos de autoría o promover la comercialización no autorizada del software.
+- Comentarios ofensivos, despectivos o ataques personales en issues, discusiones o revisiones de código.
+- Acoso público o privado hacia usuarios o colaboradores del repositorio.
+- Publicación de datos privados o información sensible de comercios reales (como listas de precios confidenciales o teléfonos personales) sin autorización explícita.
+- Intentos de eliminar los avisos de derechos de autor o vulnerar la restricción de uso no comercial establecida en la licencia del proyecto.
 
-## Aplicación
+## Aplicación y Cumplimiento
 
-Los mantenedores del repositorio tienen el derecho y la responsabilidad de eliminar, editar o rechazar comentarios, *commits*, código o incidencias que no se alineen con este Código de Conducta o con la licencia del proyecto.
+Los administradores del repositorio tienen la responsabilidad de aclarar y hacer cumplir estas normas, pudiendo editar, cerrar o eliminar comentarios, issues o Pull Requests que no se alineen con este Código de Conducta, así como bloquear temporal o permanentemente a quienes incurran en faltas reiteradas.

@@ -1,50 +1,51 @@
-# Preguntas Frecuentes (FAQ) y Escenarios Comunes
+# Preguntas Frecuentes
 
-Respuestas directas a las dudas operativas y técnicas más habituales al utilizar **Sistema de Precios**.
+## ¿Cómo almaceno e interactúo con los 5 tipos de solicitud dentro de la sección de Distribuidores?
 
----
+Tienes dos formas directas y complementarias de hacerlo:
 
-## 1. Operación Diaria y Solicitudes de Precio
+1. **Desde la pestaña Solicitud (recomendado para cargar una boleta completa con variedades)**:
+   - Selecciona cualquiera de los 5 tipos de solicitud (`Falta Registrar`, `Costo Subió`, `Costo Bajó`, `Excede % deseado`, `Inferior al % deseado`).
+   - En el bloque **Vincular con Boleta de Distribuidor**, elige el distribuidor (o crea uno nuevo con `+ Nuevo Distribuidor`) y verifica el número de **Fila en Boleta**.
+   - Completa los datos del producto, costos, ventas, stock y variedades, y pulsa el botón **Guardar en Boleta del Distribuidor**. El registro se guarda directamente en ese distribuidor sin abrir WhatsApp y el número de fila avanza automáticamente al siguiente para que sigas cargando.
+2. **Desde la pestaña Distribuidor**:
+   - Pulsa **Cargar Solicitud (Fila #N)** para saltar al formulario de Solicitud con el distribuidor y la siguiente fila ya precargados, o bien usa el botón **Agregar Fila** / **Editar en línea** dentro de la misma pestaña para elegir el tipo (`1` a `5`), ajustar costos/ventas y guardar al instante.
+   - Usa los chips superiores (`Todos los tipos`, `1: Falta Registrar` .. `5: Inferior %`) para filtrar las tarjetas por color y motivo, y haz **doble toque** sobre cualquier fila para seleccionarla y enviar su render monocromo a WhatsApp.
 
-### ¿Por qué en el Tipo 4 ("Excede % deseado") el sistema me pide un precio de venta menor al anterior?
-Porque el **Tipo 4** se utiliza cuando el precio de venta actual en góndola supera el porcentaje deseado por la tienda (por ejemplo, se estaba vendiendo con un `+55%` cuando la meta es `35%`). En consecuencia, la solicitud tiene como propósito **reducir** el precio de venta (`Precio de Venta Nuevo < Precio de Venta Anterior`).
-Si lo que necesitas es **aumentar** un precio de venta que quedó desfasado por debajo de la meta, debes seleccionar el **Tipo 5 ("Inferior al % deseado")**, donde la regla exige `Precio de Venta Nuevo > Precio de Venta Anterior`.
+## ¿Por qué al aplicar un 30% sobre un costo de Gs. 3.500 el precio de venta da Gs. 5.000 y no Gs. 4.550?
 
-### ¿Cómo corrijo una solicitud que ya guardé o envié en el Historial?
-1. Ve a la pestaña de **Historial** (tercer icono de la barra de navegación).
-2. En la tarjeta de la solicitud que deseas corregir, pulsa el botón **"Editar"**.
-3. La aplicación cargará todos los datos (incluyendo las variedades, su stock y recarga) en la pantalla de **Solicitud** mostrando el aviso *"Editando solicitud del historial"*.
-4. Modifica los valores necesarios y elige:
-   - **"Guardar Cambios en Historial"**: Sobrescribe el registro existente sin abrir WhatsApp.
-   - **"Actualizar y Enviar a WhatsApp"**: Sobrescribe el registro y comparte la nueva ficha.
+Porque la aplicación calcula el **margen real sobre el precio de venta** (`Costo / (1 - Margen)`), que es el estándar contable minorista para que el descuento o ganancia sobre el total facturado coincida con el porcentaje elegido:
 
-### ¿Por qué no se guardan las fotos en el Historial de Solicitudes?
-Por una decisión deliberada de rendimiento y ahorro de espacio. En comercios que generan decenas o cientos de solicitudes semanales, almacenar fotografías recortadas e infografías dentro del historial satura rápidamente el almacenamiento interno y la memoria RAM en teléfonos de gama de entrada.
-Cuando adjuntas una foto en la pantalla de **Solicitud**, la imagen se recorta en formato `16:9` y se envía a WhatsApp al instante, pero en el Historial solo se conserva el registro estructurado de texto y valores numéricos.
+- Con costo `Gs. 3.500` y margen `30%`: `3.500 / (1 - 0,30) = Gs. 5.000`.
+- Sobre esos `Gs. 5.000` de venta, la ganancia bruta es `Gs. 1.500`, que representa exactamente el `30%` de `5.000`.
 
----
+Además, todo precio sugerido se redondea automáticamente al múltiplo de `50 Gs.` más cercano para evitar vueltos inexistentes en efectivo.
 
-## 2. Catálogo y Búsqueda
+## ¿Por qué los botones de porcentaje solo muestran 20%, 25%, 30%, 35% y 50%?
 
-### ¿Cómo busco productos que no tienen código de barras o que están al 35%?
-- Puedes usar los **filtros rápidos** debajo del buscador (`Sin Código`, `Falta Registrar`, `20%`, `25%`, `30%`, `35%`, `Personalizado`).
-- O escribir directamente en el buscador términos combinados como:
-  - `sin codigo PLASTICO`
-  - `35% bandeja`
-  - `15.000` o `15000` (encuentra tanto costos como precios de venta con ese monto).
+Esos cinco valores corresponden a los escalones de margen comercial estandarizados para operación rápida en tienda. Si un artículo específico requiere un precio distinto, puedes escribir manualmente cualquier monto en el campo **Precio de Venta (Gs.)** y la aplicación calculará y mostrará el porcentaje exacto resultante.
 
-### ¿El buscador distingue entre la letra `n` y la `ñ`?
-Sí. El normalizador lingüístico (`MathUtils.normalizarConEnie`) elimina las tildes de las vocales (`á -> a`, `é -> e`, etc.) para que no tengas que escribir acentos en el teclado móvil, pero **preserva estrictamente la letra `ñ`** como carácter distinto de la `n` (por ejemplo, `"caño"` no se mezcla con `"cano"`).
+## ¿Qué diferencia hay entre "Excede % deseado" e "Inferior al % deseado"?
 
----
+Ambos modos se utilizan cuando el **precio de costo no cambió**, pero el precio de venta actual en góndola o caja está desfasado respecto al margen objetivo del comercio:
 
-## 3. Respaldos Binarios (`.bin`) y Cambio de Teléfono
+- **Excede % deseado**: El producto se estaba vendiendo demasiado caro. Por eso el sistema exige que el **Precio de Venta Nuevo sea menor** al Precio de Venta Anterior.
+- **Inferior al % deseado**: El producto estaba dejando menos margen del requerido. Por eso el sistema exige que el **Precio de Venta Nuevo sea mayor** al Precio de Venta Anterior.
 
-### ¿Cómo paso todo mi catálogo e historial a otro teléfono Android?
-1. En el teléfono origen, abre el menú (`⋮`) del **Catálogo** y selecciona **"Exportar respaldo binario (.bin)"**. Guarda el archivo y envíalo por WhatsApp, cable USB o carpeta compartida al nuevo dispositivo.
-2. En el teléfono destino, abre el menú (`⋮`) del **Catálogo**, elige **"Importar respaldo binario (.bin)"** y selecciona el archivo recibido.
-3. Elige si deseas **Fusionar** (combinar con lo que ya tenga el teléfono) o **Reemplazar todo**.
-4. Repite el mismo proceso desde el menú (`⋮`) de la pantalla de **Historial** si deseas trasladar también las solicitudes históricas.
+## ¿Las fotos tomadas en la pestaña Solicitud ocupan espacio en el Historial o en el Distribuidor?
 
-### ¿La aplicación necesita internet para funcionar?
-No. Toda la base binaria, el buscador por tokens, el cálculo de márgenes y el generador de imágenes monocromas funcionan **100% fuera de línea (offline)**. Solo necesitas conexión en el momento en que decidas enviar un mensaje o imagen a través de WhatsApp.
+No. La fotografía recortada en `16:9` se utiliza únicamente para renderizar la ficha infográfica que se comparte por WhatsApp en ese momento. Tanto en el Historial (`store_requests_v1.bin`) como en las Boletas de Distribuidor (`store_distributors_v1.bin`) solo se guardan los datos de texto, códigos, variedades y precios, manteniendo los archivos de respaldo ligeros y sin saturar la memoria del teléfono.
+
+## ¿Cómo puedo corregir un error en una solicitud o fila de distribuidor que ya guardé?
+
+- **En la Boleta del Distribuidor**: Abre la pestaña **Distribuidor**, toca el icono de lápiz en la tarjeta de la fila para editarla en línea (incluyendo su tipo de solicitud `1..5`, costos y ventas) o ábrela en el formulario completo de Solicitud.
+- **En el Historial**: Abre la pestaña **Historial**, pulsa **Editar** sobre el registro, modifica el valor en la pantalla de **Solicitud** y pulsa **Guardar Cambios en Historial** o **Actualizar y Enviar a WhatsApp**.
+
+## ¿Qué diferencia hay entre "Fusionar" y "Reemplazar todo" al importar un archivo `.bin`?
+
+- **Fusionar y actualizar existentes**: Mantiene los productos, boletas o solicitudes que ya tienes en tu teléfono, actualiza los que coincidan con el archivo importado y agrega los nuevos. Es la opción recomendada cuando varios empleados relevan precios y desean unir su trabajo.
+- **Reemplazar todo**: Borra el listado actual del teléfono y deja exactamente los registros contenidos en el archivo `.bin` seleccionado.
+
+## ¿La aplicación necesita internet para funcionar?
+
+No. Toda la base de productos, las boletas de distribuidores, el cálculo de precios, la generación de imágenes `16:9` o tablas monocromas y la exportación de archivos `.bin` funcionan 100% fuera de línea. Solo se requiere conexión en el momento en que decidas enviar un mensaje a través de WhatsApp.

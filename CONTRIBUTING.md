@@ -1,47 +1,42 @@
 # Guía de Contribución
 
-Gracias por tu interés en mejorar **Sistema de Precios**. Este documento detalla las reglas técnicas, de diseño y de licencia que rigen todas las colaboraciones en el repositorio.
+Gracias por tu interés en colaborar con este proyecto. Este documento describe las pautas técnicas, convenciones de código y pasos necesarios para proponer mejoras o correcciones.
 
----
+## Configuración del Entorno de Desarrollo
 
-## 1. Condiciones de Licencia (Uso No Comercial)
-
-Antes de enviar cualquier aporte, ten en cuenta que este proyecto se distribuye bajo una **Licencia de Uso Estrictamente No Comercial** ([`LICENSE`](./LICENSE)).
-Al enviar un *Pull Request*, aceptas que tu contribución se incorpore bajo los mismos términos de protección no comercial del repositorio.
-
----
-
-## 2. Principios de Ingeniería del Proyecto
-
-Cualquier cambio o nueva funcionalidad debe respetar cuatro reglas técnicas innegociables:
-
-1. **Consumo Mínimo de Memoria RAM**:
-   - No agregues librerías externas pesadas (ORM, clientes HTTP, cargadores de imágenes o frameworks de inyección de dependencias) para tareas que pueden resolverse con la biblioteca estándar de Kotlin y el SDK nativo de Android.
-   - En el renderizado de imágenes para WhatsApp (`ImageUtils.kt`), utiliza siempre `Bitmap.Config.RGB_565` y libera explícitamente el bitmap (`bitmap.recycle()`) en un bloque `finally` tras volcarlo al archivo temporal.
-2. **Interfaz Plana de Baja Latencia (`FastComponents`)**:
-   - Evita introducir componentes de Material 3 con `SubcomposeLayout` pesado (como `OutlinedTextField` o `FilterChip` estándar) dentro de listas o formularios con múltiples entradas.
-   - Utiliza las primitivas definidas en `ui/components/FastComponents.kt` (`FastTextField`, `FastChip`, `FastButton`, `FastOutlinedButton`, `FastCheckBox`, `FastNavIconItem`).
-3. **Historial Libre de Imágenes**:
-   - El historial de solicitudes (`PriceRequest`) solo debe almacenar texto estructurado y valores numéricos (`Long`, `Int`, `String`). Nunca persistas rutas de fotografías ni bitmaps en el historial.
-4. **Compatibilidad del Formato Binario (`.bin`)**:
-   - Si propones modificar los campos de `Product` o `PriceRequest`, debes mantener la lectura retrocompatible en `FastBinaryStore.kt` para no invalidar los archivos de respaldo `.bin` existentes de las tiendas.
-
----
-
-## 3. Flujo de Trabajo para Colaborar
-
-1. **Verifica las incidencias abiertas**: Revisa la pestaña de *Issues* para confirmar si el error o mejora ya fue reportado.
-2. **Crea una rama descriptiva**:
-   - `fix/descripcion-corta` para correcciones de errores.
-   - `feat/descripcion-corta` para nuevas mejoras funcionales.
-   - `perf/descripcion-corta` para optimizaciones de memoria o velocidad.
-   - `docs/descripcion-corta` para mejoras en la documentación.
-3. **Verifica la compilación y las pruebas locales**:
+1. Utiliza **Android Studio Ladybug (2024.2.1)** o una versión posterior compatible con AGP `8.7+` y Kotlin `2.0+`.
+2. Configura **JDK 17** como runtime de Gradle en las preferencias del proyecto.
+3. Asegúrate de contar con el SDK de Android nivel `36` instalado.
+4. Clona el repositorio y ejecuta una compilación inicial para verificar el entorno:
    ```bash
-   gradle :app:testDebugUnitTest
-   gradle assembleDebug
+   gradle assembleDebug :app:testDebugUnitTest
    ```
-4. **Asegura la trazabilidad de interfaz (`testTag`)**:
-   - Todo botón, campo de texto o selector interactivo nuevo debe incluir su `Modifier.testTag("nombre_en_snake_case")` y sus textos visibles deben respetar la paleta de contraste automático (`getContrastingTextColor`).
-5. **Abre el Pull Request**:
-   - Describe qué problema resuelve el cambio, cómo se probó y confirma que no incrementa el uso de memoria ni introduce dependencias externas.
+
+## Reglas de Arquitectura y Rendimiento
+
+Para mantener el bajo uso de memoria RAM, la claridad estructural y la fluidez en dispositivos de gama de entrada, toda contribución debe respetar los siguientes principios:
+
+- **Estructura de paquete plana en `com.example`**: Todos los archivos Kotlin del módulo `app` se ubican directamente en `app/src/main/java/com/example/` bajo `package com.example`. No introduzcas subcarpetas anidadas artificiales.
+- **Sin librerías pesadas de persistencia**: Toda persistencia local se realiza en `FastBinaryStore` mediante `DataOutputStream` y `DataInputStream`. No agregues Room, SQLite wrappers ni ORMs externos.
+- **Componentes de interfaz planos sobre grilla de 8.dp**: Utiliza los componentes de `FastComponents.kt` (`FastButton`, `FastOutlinedButton`, `FastChip`, `FastTextField`, `FastNavIconItem`) con superficies planas de color sólido, sin bordes ni líneas divisorias, y espaciados múltiplos de `8.dp` (`8.dp`, `16.dp`, `24.dp`, `32.dp`, `40.dp`, `48.dp`).
+- **Tipografía general Times New Roman**: Mantén el uso de `TimesNewRomanFontFamily` (`R.font.tinos`) tanto en `Type.kt` como en el renderizado de bitmaps en `ImageUtils.kt`.
+- **Aritmética monetaria entera**: Los precios en Guaraníes deben manejarse como `Long` y calcularse a través de `MathUtils`. No utilices `Float` o `Double` para almacenar importes monetarios.
+- **Sin imágenes persistentes en el Historial ni en las Boletas de Distribuidor**: Las capturas fotográficas se procesan únicamente en memoria y caché temporal para generar la ficha `16:9` al momento de compartir; nunca deben guardarse en `store_requests_v1.bin` ni en `store_distributors_v1.bin`.
+- **Etiquetas de prueba (`testTag`)**: Todo botón, campo de entrada o selector interactivo nuevo debe incluir su `Modifier.testTag("nombre_en_snake_case")` correspondiente.
+
+## Flujo de Trabajo para Pull Requests
+
+1. Crea una rama descriptiva a partir de `main`:
+   - `feat/descripcion-corta` para nuevas funcionalidades.
+   - `fix/descripcion-corta` para corrección de errores.
+   - `docs/descripcion-corta` para mejoras en la documentación.
+2. Asegúrate de que el código compile sin advertencias críticas y pase los chequeos locales:
+   ```bash
+   gradle :app:testDebugUnitTest assembleDebug
+   ```
+3. Si modificas el formato binario de `FastBinaryStore`, incrementa el encabezado mágico (`FBC1`, `FBD2`, `STR3`) y conserva el método de lectura de versiones previas para no romper archivos `.bin` existentes.
+4. Abre el Pull Request detallando el problema resuelto, los archivos modificados y cómo fue verificado.
+
+## Acuerdo de Licencia
+
+Al enviar una contribución a este repositorio, aceptas que tus aportes se distribuyan bajo los mismos términos de la [Licencia de Código Disponible para Uso No Comercial](LICENSE) que rige al proyecto.

@@ -1,208 +1,137 @@
-# Sistema de Precios
+# Gestión de Precios y Catálogo
 
-![Android CI](https://img.shields.io/badge/compilaci%C3%B3n-estable-2ea043)
-![Android API](https://img.shields.io/badge/Android-API%2024%2B%20(7.0%2B)-3DDC84)
-![Kotlin](https://img.shields.io/badge/Kotlin-2.0%2B-7F52FF)
-![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20%2B%20FastComponents-4285F4)
-![Versión](https://img.shields.io/badge/versi%C3%B3n-2.4.0-1f6feb)
-![Licencia](https://img.shields.io/badge/licencia-Uso%20No%20Comercial-d73a4a)
+Aplicación Android nativa en Kotlin y Jetpack Compose para comercios minoristas, depósitos y distribuidoras que operan en Guaraníes (Gs.). Permite administrar el catálogo de mercaderías, calcular márgenes sobre precio de venta con redondeo comercial a múltiplos de 50 Gs., gestionar boletas por distribuidor ordenadas por fila con soporte para los cinco tipos de solicitud, generar fichas en formato 16:9 y compartir reportes por WhatsApp o respaldo binario `.bin` sin conexión a internet.
 
-**Aplicación Android de inventario, cálculo de márgenes y solicitudes de ajuste de precios para comercios locales, desarrollada en Kotlin y Jetpack Compose.**
+## Propósito del Proyecto
 
-**Sistema de Precios** resuelve la operación diaria de tiendas minoristas y mayoristas que necesitan consultar costos al instante, calcular precios de venta con márgenes estandarizados (`20%`, `25%`, `30%`, `35%`, `50%`) y redondeo comercial a múltiplos de `500`, auditar diferencias de precios en piso de venta, re-editar solicitudes históricas y despachar reportes por **WhatsApp** en **Texto Plano (TXT)** o **Imagen Render Monocroma** funcionando **100% fuera de línea (offline-first)** en teléfonos modestos desde 1 GB de RAM.
+En tiendas minoristas, despensas y comercios locales, la actualización de precios suele depender de cuadernos manuales o mensajes sueltos por WhatsApp cuando un proveedor cambia sus costos. Este flujo genera errores de cálculo en los márgenes, pérdida de historial y demoras al registrar mercadería nueva en caja.
 
----
+Esta aplicación resuelve ese problema operativo ofreciendo una herramienta directa para el personal de salón, encargados de compras y propietarios:
 
-## Tabla de Navegación Rápida
+- Consulta de precios de costo y venta en tienda sin depender de conexión de red.
+- Estandarización del cálculo de márgenes comerciales (`20%`, `25%`, `30%`, `35%`, `50%`) sobre el precio de venta con redondeo automático a monedas de `50 Gs.`.
+- Emisión de solicitudes de cambio de precio en cinco escenarios operativos, listas para guardarse directamente en la boleta de un distribuidor o enviarse por WhatsApp como infografía `16:9` (`1280x720 px`), texto plano (`TXT`) o tabla monocroma para impresión.
+- Gestión de boletas por distribuidor con orden explícito de filas (`ordenFila`), tarjetas codificadas con los 5 colores por tipo de solicitud, selección rápida con doble toque para renderizar una tabla monocroma hacia WhatsApp y sincronización de precios en un toque hacia el Catálogo general.
+- Sincronización entre teléfonos del personal mediante archivos binarios `.bin` transferibles por WhatsApp o cable USB.
 
-- [¿Por qué existe este proyecto?](#por-qué-existe-este-proyecto)
-- [¿Para quién está pensado? (Guías por Perfil)](#para-quién-está-pensado-guías-por-perfil)
-- [Vista Previa del Producto (Interfaz en Texto)](#vista-previa-del-producto-interfaz-en-texto)
-- [Cómo lo usa un comercio en el día a día](#cómo-lo-usa-un-comercio-en-el-día-a-día)
-- [Características Principales](#características-principales)
-- [Ecosistema de Documentación (`docs/`)](#ecosistema-de-documentación-docs)
-- [Inicio Rápido e Instalación](#inicio-rápido-e-instalación)
-- [Resumen de Arquitectura](#resumen-de-arquitectura)
-- [Preguntas Frecuentes (FAQ)](#preguntas-frecuentes-faq)
-- [Hoja de Ruta (Roadmap)](#hoja-de-ruta-roadmap)
-- [Licencia (Prohibición de Uso Comercial por Terceros)](#licencia-prohibición-de-uso-comercial-por-terceros)
+## Recorrido de Pantallas
 
----
+La aplicación organiza su operación en un encabezado editable para el nombre del comercio, cuatro vistas principales y una barra de navegación continua de iconos. Toda la tipografía del sistema utiliza Times New Roman (`Tinos`), el código fuente se encuentra aplanado directamente en `app/src/main/java/com/example/` y las vistas se estructuran mediante superficies planas de color sólido sobre una grilla de `8.dp`.
 
-## ¿Por qué existe este proyecto?
+### Vista de Catálogo
 
-En muchos comercios locales, depósitos y autoservicios, la actualización de precios sigue dependiendo de cuadernos, calculadoras manuales o mensajes desestructurados de WhatsApp entre el piso de venta y la administración:
-- El personal de salón detecta productos que **faltan registrar**, artículos cuyo **costo subió o bajó** en la factura del proveedor, o precios en góndola que **exceden o quedan por debajo del margen objetivo (`20%..50%`)**.
-- Las aplicaciones empresariales tradicionales exigen servidores en la nube, suscripciones mensuales o teléfonos de gama alta que se bloquean al filtrar miles de artículos.
+La pantalla principal muestra el buscador por código o descripción, filtros por margen (`Todos`, `20%`, `25%`, `30%`, `35%`, `50%`), opciones de ordenamiento y el listado de productos. Cada elemento exhibe descripción, código, precio de costo, precio de venta con su porcentaje de margen y acciones rápidas para crear una solicitud de ajuste, editar o eliminar.
 
-**Sistema de Precios** fue construido para eliminar esa fricción:
-1. **Respuesta inmediata (0 ms de bloqueo)**: Utiliza primitivas planas propias (`FastComponents`) y un motor binario directo (`FastBinaryStore` V2) sin bases de datos SQLite/ORM pesadas.
-2. **Estandarización operativa**: Convierte cualquier ajuste de precio o conteo de variedades en una solicitud verificada lista para compartir por WhatsApp en segundos.
-3. **Portabilidad total sin servidores**: Todo el catálogo y el historial se respaldan e importan en archivos `.bin` compactos en cuestión de milisegundos.
+### Vista de Solicitud
 
----
+Permite seleccionar uno de los cinco motivos de ajuste (`Falta Registrar`, `Costo Subió`, `Costo Bajó`, `Excede % deseado`, `Inferior al % deseado`), vincular opcionalmente la solicitud a un distribuidor específico con su número de fila en la boleta (`ordenFila`), adjuntar una fotografía con recorte interactivo `16:9`, declarar stock y recarga tanto para el producto principal como para sus variedades del mismo costo, y elegir entre dos acciones:
 
-## ¿Para quién está pensado? (Guías por Perfil)
+- **Guardar en Boleta del Distribuidor**: Almacena el ítem con cualquiera de los 5 tipos de solicitud y todos sus datos completos directamente en la boleta del distribuidor activo sin abrir WhatsApp, avanzando automáticamente al siguiente número de fila para continuar la carga.
+- **Generar Imagen y Enviar a WhatsApp**: Renderiza la infografía `16:9`, guarda el registro en el Historial (y en la boleta del distribuidor si fue seleccionado) y abre el selector de WhatsApp.
 
-| Perfil | Objetivo Principal | Por dónde empezar |
-| :--- | :--- | :--- |
-| **Dueño de Tienda / Gerente** | Definir el nombre del comercio, controlar que los márgenes (`20%`, `25%`, `30%`, `35%`, `50%`) se cumplan y mantener respaldos `.bin` seguros. | Ver [Cómo lo usa un comercio](#cómo-lo-usa-un-comercio-en-el-día-a-día) y [Formatos de Respaldo `.bin`](./docs/export-formats.md). |
-| **Encargado de Ventas / Salón** | Buscar precios en segundos, relevar stock/recarga por variedad y enviar solicitudes de cambio de precio por WhatsApp. | Ver [Flujos Funcionales y Tipos 1 a 5](./docs/feature-flows.md). |
-| **Administrador / Operador de Caja** | Auditar el Historial, **re-editar solicitudes** cuando cambia un stock o costo, y exportar listados en TXT o Imagen Monocroma. | Ver [Flujo de Re-edición de Historial](./docs/feature-flows.md#4-flujo-3-re-edición-de-solicitudes-desde-el-historial) y [Preguntas Frecuentes](./docs/faq.md). |
-| **Desarrollador Android** | Compilar el proyecto, estudiar el motor `FastBinaryStore` o proponer mejoras respetando el límite de memoria RAM. | Ver [Arquitectura del Sistema](./docs/architecture.md), [Modelos de Datos](./docs/data-models.md) y [Guía de Contribución](./CONTRIBUTING.md). |
+### Vista de Boleta de Distribuidor
 
----
+Permite seleccionar o crear un distribuidor activo y administrar su boleta ordenada por número de fila (`Fila #1`, `Fila #2`, etc.). En esta vista es posible almacenar y consultar los 5 tipos de solicitud con sus tarjetas de colores distintivos (`Verde`, `Azul`, `Naranja`, `Teal`, `Rojo`), filtrar las filas por tipo de solicitud (`Todos los tipos` o `1` a `5`), editar en línea cualquier fila con sus costos anteriores/nuevos, ventas anteriores/nuevas, stock, recarga y variedades, importar plantillas habituales desde el Catálogo, seleccionar filas específicas mediante **doble toque** para renderizar una tabla monocroma con el título del tipo de solicitud y el desglose completo hacia WhatsApp, y sincronizar los precios resultantes directamente al Catálogo general.
 
-## Vista Previa del Producto (Interfaz en Texto)
+### Vista de Historial
 
-La interfaz prescinde de adornos innecesarios y utiliza una barra de navegación plana de **solo iconos** (Catálogo, Solicitud e Historial) para aprovechar el 100% de la pantalla:
+Almacena localmente las solicitudes emitidas con sus datos de costo, venta, fecha, distribuidor, fila y variedades (sin guardar fotografías para conservar espacio en almacenamiento y memoria). Desde cada registro es posible reabrir la solicitud en el formulario principal para corregir sus datos y actualizarla en su misma posición, o bien exportar el historial en texto plano (`TXT`), imagen monocroma o respaldo `.bin`.
 
-```text
-+-----------------------------------------------------------------------+
-| COMERCIAL SAN JOSÉ (Editar)                         [Exportar] [ + ]  |
-+-----------------------------------------------------------------------+
-| [ Buscar por código, descripción, 35%, 12.500...          ] [ X ] [⋮] |
-| (Todos) (Completos) (Sin Código) (Falta Reg.) (20%) (25%) (30%) (35%) |
-+-----------------------------------------------------------------------+
-| [ ] [100648] Jugo en Sobre 25g                           [solicitud]  |
-|     Costo: 1.500 Gs.   |   Venta: 2.000 Gs.   |   Margen: +33%        |
-+-----------------------------------------------------------------------+
-| [ ] [SIN CÓDIGO] Bandeja Plástica Mediana                [solicitud]  |
-|     Costo: 10.000 Gs.  |   Venta: 13.500 Gs.  |   Margen: +35%        |
-+-----------------------------------------------------------------------+
-|          [ Icono Catálogo ]   [ Icono Solicitud ]   [ Icono Historial ]|
-+-----------------------------------------------------------------------+
-```
+## Flujo de Trabajo en un Comercio
 
-### Pantalla de Solicitud y Modo de Re-edición desde Historial
+1. **Carga de boleta de proveedor con los 5 tipos de solicitud**: Al recibir la factura de un distribuidor, el operador selecciona el proveedor en la pestaña **Distribuidor** y pulsa **Cargar Solicitud (Fila #N)** (o abre la pestaña **Solicitud** eligiendo el distribuidor). Completa cualquiera de los 5 tipos de solicitud y pulsa **Guardar en Boleta del Distribuidor** para almacenar fila por fila sin salir de la aplicación.
+2. **Revisión por colores, edición en línea y doble toque**: En la pestaña **Distribuidor**, cada fila se muestra con el color correspondiente a su tipo de solicitud (`1` a `5`) y puede filtrarse por motivo. Con **doble toque** sobre las tarjetas deseadas, el operador marca los artículos a reportar y genera en un toque una imagen monocroma de tabla con el título del motivo, stock, variedades y desglose de precios lista para enviar por WhatsApp.
+3. **Sincronización con el Catálogo general**: Una vez verificados los costos y márgenes en la boleta del distribuidor, el operador pulsa **Sincronizar al Catálogo** para actualizar o dar de alta automáticamente todos los productos de la boleta en el Catálogo principal.
+4. **Envío de ficha individual 16:9**: Cuando un artículo puntual requiere evidencia fotográfica, el usuario adjunta la foto con encuadre `16:9` en la pestaña **Solicitud** y pulsa **Generar Imagen y Enviar a WhatsApp**.
+5. **Respaldo entre dispositivos**: Al cierre de turno, el administrador exporta los archivos `.bin` de Catálogo, Boletas de Distribuidor o Historial desde el menú superior y los comparte con los demás teléfonos del local.
 
-```text
-+-----------------------------------------------------------------------+
-| Editando solicitud del historial                   [Cancelar edición] |
-+-----------------------------------------------------------------------+
-| Tipo: (1.Falta Reg) (2.Subió) (3.Bajó) ([4.Excede %]) (5.Inferior %)  |
-| % Deseado: (20%) (25%) (30%) ([35%]) (50%)                            |
-| Código: [ 100648       ]  Producto: [ Jugo en Sobre 25g             ] |
-| Stock Principal: [ 18  ]  Recarga Principal: [ 24  ]                  |
-| Variedades: · Naranja (Stock: 6 | Recarga: 12)  · Durazno (Stock: 12) |
-|-----------------------------------------------------------------------|
-| Precio de Costo:          [ 1.500 ] Gs.                               |
-| Precio de Venta Anterior: [ 2.500 ] Gs.  (20%) (25%) (30%) (35%) (50%)|
-| Precio de Venta Nuevo:    [ 2.000 ] Gs.  (20%) (25%) (30%) [35%] (50%)|
-| * Regla Tipo 4 verificada: Venta Nueva (2.000) < Venta Anterior (2.500)|
-+-----------------------------------------------------------------------+
-| [ Guardar Cambios en Historial ]   [ Actualizar y Enviar a WhatsApp ] |
-+-----------------------------------------------------------------------+
-```
+## Funcionalidades Principales
 
----
+- **Catálogo con búsqueda y filtros de margen**: Filtrado por subcadenas de código o descripción, filtro por márgenes comerciales (`20%` a `50%`) y ordenamiento alfabético o por precio.
+- **Cinco modalidades de solicitud con validación de negocio**:
+  - `Falta Registrar`: Alta de producto con costo y venta inicial.
+  - `Costo Subió`: Exige que el costo nuevo sea mayor al costo anterior.
+  - `Costo Bajó`: Exige que el costo nuevo sea menor al costo anterior.
+  - `Excede % deseado`: Costo único; exige que la venta nueva sea menor a la venta anterior para corregir un sobreprecio.
+  - `Inferior al % deseado`: Costo único; exige que la venta nueva sea mayor a la venta anterior para recomponer el margen.
+- **Boleta de Distribuidor con soporte íntegro de los 5 tipos de solicitud**:
+  - Almacenamiento ordenado por número de fila (`ordenFila`) editable y reordenable.
+  - Tarjetas codificadas con la paleta de 5 colores según el tipo de solicitud y chips de filtrado rápido por tipo (`1` a `5`).
+  - Selección rápida mediante **doble toque** para exportar a WhatsApp una tabla monocroma con el título del tipo de solicitud y el desglose completo de precios, stock y variedades por fila.
+  - Importación de plantillas de productos habituales desde el Catálogo y sincronización directa de precios hacia el Catálogo general.
+- **Gestión de variedades y stock por ítem**: Soporte para declarar múltiples sabores, medidas o presentaciones que comparten el mismo costo, cada una con su propio stock actual y cantidad de recarga.
+- **Re-edición directa desde el Historial o desde la Boleta del Distribuidor**: Carga completa de cualquier solicitud o fila en el formulario principal para actualizar sus valores sin duplicar el registro.
+- **Motor propio de exportación multimodal**:
+  - Infografía `16:9` (`1280x720 px`) renderizada con `android.graphics.Canvas` y tipografía Times New Roman.
+  - Imagen monocroma (blanco y negro) de catálogo, boleta de distribuidor o historial para lectura o impresión térmica.
+  - Texto plano (`TXT`) formateado para envío directo por WhatsApp.
+  - Archivos binarios `.bin` (`FastBinaryStore`) para copia de seguridad e intercambio entre dispositivos con modos de fusión o reemplazo total.
 
-## Cómo lo usa un comercio en el día a día
+## Guía Rápida según tu Rol
 
-```text
-  [1. Consulta en Salón]          [2. Detección de Ajuste]         [3. Envío y Auditoría]
-El vendedor busca el artículo   Selecciona el Tipo de Solicitud   Envía la ficha en TXT o
-por código, nombre o margen     (1 a 5), aplica el margen del     Imagen Monocroma por WhatsApp.
-(ej. "bandeja 35%") en el       20%, 25%, 30%, 35% o 50% y        El registro queda en Historial
-Catálogo offline.               carga el stock por variedad.      listo para re-editarse.
-```
+### Propietario o Encargado de Tienda
 
----
+- Define el nombre de tu local en el encabezado superior; ese nombre identificará todas las planillas, boletas e imágenes enviadas por WhatsApp.
+- Revisa las boletas por distribuidor filtrando por cualquiera de los 5 tipos de solicitud y sincroniza los precios aprobados hacia el Catálogo general con un toque.
+- Realiza copias de seguridad periódicas desde el menú de tres puntos (`Exportar respaldo binario .bin`) tanto en Catálogo como en Distribuidores e Historial.
 
-## Características Principales
+### Operador de Salón o Depósito
 
-- **Catálogo con Buscador Multicriterio por Tokens**: Búsqueda instantánea por código principal, código alternativo, descripción (con preservación de la letra `ñ` e insensibilidad a tildes), costo, precio de venta (con o sin puntos separadores de miles) y filtros directos por margen (`20%`, `25%`, `30%`, `35%`, `Personalizado`).
-- **Cinco Modalidades de Solicitud de Cambio de Precios**:
-  1. **Tipo 1 (Falta Registrar)**: Alta de productos nuevos con costo, venta y recarga opcional.
-  2. **Tipo 2 (Costo Subió)**: Validación estricta `Costo Nuevo > Costo Anterior`.
-  3. **Tipo 3 (Costo Bajó)**: Validación estricta `Costo Nuevo < Costo Anterior`.
-  4. **Tipo 4 (Excede % deseado)**: Ajuste a la baja cuando el precio actual supera el margen meta (`Venta Nueva < Venta Anterior`).
-  5. **Tipo 5 (Inferior al % deseado)**: Ajuste al alza cuando el precio actual está por debajo del margen meta (`Venta Nueva > Venta Anterior`).
-- **Re-edición Completa desde el Historial**: Botón `"Editar"` en cada registro del Historial que carga todos sus datos y variedades en la pantalla de Solicitud para sobrescribir el registro en su lugar (`"Guardar Cambios en Historial"` o `"Actualizar y Enviar a WhatsApp"`).
-- **Historial Ultraligero Libre de Imágenes**: El historial almacena únicamente datos estructurados de texto y números (`PriceRequest`), evitando saturar la memoria flash o la RAM con imágenes.
-- **Exportación Dual para WhatsApp**:
-  - **Texto Plano (TXT)**: Mensajes limpios con subtítulos condicionales de `Stock` y `Recarga` por variedad.
-  - **Imagen Render Monocroma (`RGB_565`)**: Tablas e infografías en blanco y negro (`#FFFFFF` / `#111111`) generadas al vuelo y liberadas inmediatamente de la memoria nativa.
-- **Respaldo e Importación Binaria (`.bin`)**: Copias de seguridad completas de Catálogo e Historial con modos **Fusionar** y **Reemplazar todo**.
+- Para cargar una factura de un proveedor sin interrupciones, selecciona el distribuidor en la pestaña **Solicitud**, elige el tipo de solicitud (`1` a `5`), completa los datos y pulsa **Guardar en Boleta del Distribuidor**. El número de fila aumentará automáticamente para el siguiente ítem.
+- En la pestaña **Distribuidor**, haz **doble toque** sobre las filas que quieras incluir en el reporte y pulsa **Imagen a WhatsApp** para enviar la tabla monocroma con todos los detalles de cada solicitud.
+- Si te equivocaste en un monto después de crear una solicitud, puedes editarla tanto en línea dentro de la pestaña **Distribuidor** como desde la pestaña **Historial**.
 
----
+### Desarrollador o Colaborador Técnico
 
-## Ecosistema de Documentación (`docs/`)
+- Revisa la arquitectura interna y el formato de persistencia en `docs/architecture.md` y `docs/data-models.md`.
+- Todo el código fuente de la aplicación se aloja de forma plana y directa en `app/src/main/java/com/example/` bajo `package com.example`, utilizando los componentes planos definidos en `FastComponents.kt`, superficies sin bordes ni divisores sobre una grilla de `8.dp`, y la familia tipográfica Times New Roman (`R.font.tinos`).
+- Antes de abrir un Pull Request, consulta `CONTRIBUTING.md` y verifica que las pruebas unitarias (`gradle :app:testDebugUnitTest`) y el chequeo de compilación (`gradle assembleDebug`) finalicen sin errores.
 
-Para profundizar en cada aspecto técnico y funcional del proyecto, consulta la documentación modular:
+## Instalación y Compilación
 
-| Documento | Contenido |
-| :--- | :--- |
-| [**Arquitectura del Sistema**](./docs/architecture.md) | Diseño MVVM, primitivas `FastComponents`, motor `FastBinaryStore` V2 y optimización de memoria RAM. |
-| [**Flujos Funcionales y Operativos**](./docs/feature-flows.md) | Guía paso a paso del Catálogo, reglas de los 5 Tipos de Solicitud y ciclo de re-edición del Historial. |
-| [**Formatos de Exportación y `.bin`**](./docs/export-formats.md) | Especificación de bytes de los archivos `.bin` (`STP2`, `STR2`, `STC2`), salida TXT e Imagen Monocroma `RGB_565`. |
-| [**Modelos de Datos y Fórmulas**](./docs/data-models.md) | Estructura de `Product`, `PriceRequest`, `VarietyStockItem` y aritmética entera con redondeo a `500`. |
-| [**Preguntas Frecuentes (FAQ)**](./docs/faq.md) | Solución a dudas comunes sobre los Tipos 4 y 5, búsqueda con `ñ`, respaldos `.bin` y uso sin internet. |
-| [**Hoja de Ruta (Roadmap)**](./docs/roadmap.md) | Hitos entregados y mejoras planificadas para próximas versiones. |
-| [**Guía de Contribución**](./CONTRIBUTING.md) | Reglas de código, criterios de rendimiento y proceso para enviar *Pull Requests*. |
-| [**Registro de Cambios**](./CHANGELOG.md) | Historial detallado de versiones (`v1.0.0` a `v2.4.0`). |
+### Requisitos Previos
 
----
+- Android Studio Ladybug (2024.2.1) o superior.
+- JDK 17 configurado en Gradle.
+- Android SDK con `compileSdk 36` y `minSdk 24` (Android 7.0+).
 
-## Inicio Rápido e Instalación
+### Pasos para Ejecutar el Proyecto
 
-### Requisitos del Entorno
-- **JDK**: Java 17.
-- **Android SDK**: `minSdk 24` (Android 7.0 Nougat) / `targetSdk 35` / `compileSdk 36`.
-- **Gradle**: Configurado con Version Catalog (`gradle/libs.versions.toml`).
-
-### Compilación desde Terminal
-```bash
-# 1. Ejecutar pruebas unitarias y de lógica comercial
-gradle :app:testDebugUnitTest
-
-# 2. Compilar el paquete instalable de depuración (APK)
-gradle :app:assembleDebug
-```
-El archivo instalable se generará en `app/build/outputs/apk/debug/app-debug.apk`.
-
----
+1. Clonar el repositorio:
+   ```bash
+   git clone <url-del-repositorio>
+   cd <nombre-del-repositorio>
+   ```
+2. Compilar el paquete de depuración:
+   ```bash
+   gradle assembleDebug
+   ```
+3. Ejecutar la suite de pruebas locales:
+   ```bash
+   gradle :app:testDebugUnitTest
+   ```
+4. El archivo instalable se generará en `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Resumen de Arquitectura
 
-El proyecto está construido exclusivamente con **Kotlin** y **Jetpack Compose** sobre tres pilares:
-1. **`FastComponents` (`ui/components/FastComponents.kt`)**: Controles planos de una sola capa (`FastTextField`, `FastChip`, `FastButton`, `FastCheckBox`, `FastNavIconItem`) sin `SubcomposeLayout` ni sombras costosas.
-2. **`FastBinaryStore` (`data/local/FastBinaryStore.kt`)**: Almacenamiento binario con índice hash $O(1)$ en memoria, colas `Channel.CONFLATED` (`250 ms`) y volcado físico atómico (`fsync` + `ATOMIC_MOVE`).
-3. **Cero Dependencias Innecesarias**: Sin ORM (`Room`), sin clientes de red (`Retrofit`/`OkHttp`), sin librerías de carga de imágenes (`Coil`) y sin servicios en la nube, garantizando velocidad constante en hardware modesto.
+El proyecto aplica una arquitectura MVVM con estructura de paquete aplanada en `com.example` (`app/src/main/java/com/example/`) sin dependencias innecesarias en tiempo de ejecución:
 
-*(Consulta el detalle completo en [`docs/architecture.md`](./docs/architecture.md)).*
+- **Pantallas y Estado Reactivo (`MainActivity.kt`, `CatalogScreen.kt`, `RequestScreen.kt`, `DistributorScreen.kt`, `RequestHistoryScreen.kt`)**: Interfaces en Jetpack Compose conectadas a `CatalogViewModel`, `RequestViewModel` y `DistributorViewModel` mediante `StateFlow`, tipografía Times New Roman (`R.font.tinos`) y componentes planos sin bordes (`FastComponents.kt`).
+- **Modelos y Persistencia Binaria (`Product.kt`, `PriceRequest.kt`, `DistributorInvoice.kt`, `VarietyStockItem.kt`, `FastBinaryStore.kt`)**: Modelos de dominio inmutables y motor de almacenamiento binario secuencial basado en `DataOutputStream` y `DataInputStream` con escritura atómica mediante archivos temporales `.tmp`.
+- **Utilidades de Cálculo y Renderizado (`MathUtils.kt`, `ImageUtils.kt`)**: Aritmética entera de márgenes con redondeo comercial `HALF_UP` y generador de bitmaps `16:9` y tablas monocromas para WhatsApp.
 
----
+## Mapa de Documentación
 
-## Preguntas Frecuentes (FAQ)
+- [Arquitectura del Sistema](docs/architecture.md): Diseño interno en `com.example`, flujo de estado, componentes planos y decisiones de rendimiento.
+- [Flujos Funcionales](docs/feature-flows.md): Recorridos paso a paso del catálogo, las cinco solicitudes, la boleta de distribuidor, el doble toque y la re-edición de historial.
+- [Formatos de Exportación](docs/export-formats.md): Especificación de mensajes TXT, tablas monocromas de catálogo/distribuidor/historial, fichas 16:9 y archivos `.bin`.
+- [Modelos de Datos y Esquema Binario](docs/data-models.md): Estructura de `Product`, `PriceRequest`, `DistributorInvoice`, `DistributorItem`, `VarietyStockItem` y layout de bytes en disco.
+- [Preguntas Frecuentes](docs/faq.md): Respuestas sobre cómo almacenar los 5 tipos de solicitud en distribuidores, redondeo a 50 Gs., cálculo sobre venta y respaldos `.bin`.
+- [Hoja de Ruta](docs/roadmap.md): Hitos completados y mejoras planificadas para próximas versiones.
+- [Guía de Contribución](CONTRIBUTING.md): Reglas de estilo, estructura plana en `com.example`, pruebas y flujo de ramas.
+- [Historial de Cambios](CHANGELOG.md): Registro cronológico de versiones.
+- [Política de Seguridad](SECURITY.md): Reporte de vulnerabilidades e integridad de archivos `.bin`.
 
-- **¿Por qué el Tipo 4 exige un precio menor al anterior y el Tipo 5 un precio mayor?**
-  Porque el **Tipo 4** corrige un precio que *excede* el margen deseado (baja el precio de venta), mientras que el **Tipo 5** corrige un precio que quedó *inferior* al margen deseado (sube el precio de venta).
-- **¿Puedo editar una solicitud del Historial sin volver a escribir todas las variedades?**
-  Sí. Al pulsar **"Editar"** en el Historial, todas las variedades con su stock y recarga individual se reconstruyen automáticamente en el formulario de Solicitud.
-- **¿Se guardan imágenes dentro del Historial?**
-  No. Para proteger la memoria RAM y el almacenamiento del teléfono, el Historial guarda únicamente texto y valores numéricos.
+## Licencia
 
-*(Ver más respuestas en [`docs/faq.md`](./docs/faq.md)).*
-
----
-
-## Hoja de Ruta (Roadmap)
-
-- [x] Motor binario V2 (`STP2`/`STR2`/`STC2`) con fusión de respaldos `.bin`.
-- [x] Escala de márgenes comerciales (`20%`, `25%`, `30%`, `35%`, `50%`) y filtros rápidos en Catálogo.
-- [x] Interfaz plana `FastComponents` y barra de navegación de solo iconos.
-- [x] Re-edición in-situ de registros del Historial libre de imágenes.
-- [ ] Ajuste masivo de porcentajes por lote de productos seleccionados (`v2.5.x`).
-- [ ] Filtro por rango de fechas en Historial (`v2.5.x`).
-
-*(Consulta la planificación completa en [`docs/roadmap.md`](./docs/roadmap.md)).*
-
----
-
-## Licencia (Prohibición de Uso Comercial por Terceros)
-
-Este repositorio se publica bajo una **Licencia de Código Disponible para Uso Estrictamente No Comercial** (ver archivo [`LICENSE`](./LICENSE)).
-
-- **Permitido**: Estudio del código, auditoría técnica, ejecución personal/privada sin fines de lucro y envío de mejoras a este repositorio oficial.
-- **Estrictamente Prohibido**: Queda prohibido a cualquier usuario o tercero de GitHub vender, revender, alquilar, ofrecer como servicio pagado (SaaS), cobrar por instalación/soporte, publicar en tiendas de aplicaciones o monetizar directa o indirectamente este software o trabajos derivados. Todos los derechos comerciales pertenecen exclusivamente al autor y titular del repositorio.
+Este proyecto se distribuye bajo una **Licencia de Código Disponible para Uso No Comercial**. Queda prohibido a terceros utilizar este repositorio, su código fuente o sus binarios compilados con fines comerciales o de lucro. Consulta el archivo [LICENSE](LICENSE) para leer los términos completos.

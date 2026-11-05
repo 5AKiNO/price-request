@@ -1,117 +1,42 @@
 # Arquitectura del Sistema
 
-**Sistema de Precios** está diseñado bajo una arquitectura **MVVM (Model-View-ViewModel)** estrictamente desacoplada, optimizada para operar sin bloqueos en el hilo principal (`0 ms` de latencia de entrada) y con una huella mínima de memoria RAM en dispositivos Android desde API 24 (Android 7.0).
+Este documento describe la organización interna de la aplicación, la estructura de archivos aplanada en `com.example`, las optimizaciones de bajo nivel inspiradas en motores WebAssembly y el flujo de datos entre la interfaz de usuario, los modelos de negocio y el almacenamiento local.
 
----
+## Estructura Plana en `com.example`
 
-## 1. Diagrama General de Capas
+La aplicación sigue el patrón **MVVM (Model - View - ViewModel)** con flujo de datos unidireccional (`StateFlow`). Todos los archivos Kotlin residen directamente en `app/src/main/java/com/example/` bajo el paquete único `package com.example`:
 
-```text
-+-----------------------------------------------------------------------------+
-|                        CAPA DE INTERFAZ (Jetpack Compose)                   |
-|                                                                             |
-|  +-----------------------+  +-----------------------+  +-----------------+  |
-|  |     CatalogScreen     |  |     RequestScreen     |  |  RequestHistory |  |
-|  |  (Lista + Buscador)   |  |  (Tipos 1-5 + Edición)|  | (Tarjetas + TXT)|  |
-|  +-----------+-----------+  +-----------+-----------+  +--------+--------+  |
-|              |                          |                       |           |
-|              +--------------------------+-----------------------+           |
-|                                         |                                   |
-|                    Primitivas Planas (FastComponents.kt)                    |
-|     FastTextField | FastChip | FastButton | FastCheckBox | FastNavIconItem  |
-+-----------------------------------------+-----------------------------------+
-                                          | StateFlow / Eventos Unidireccionales
-+-----------------------------------------v-----------------------------------+
-|                        CAPA DE PRESENTACIÓN (ViewModels)                    |
-|                                                                             |
-|           +------------------------+         +------------------------+     |
-|           |    CatalogViewModel    |         |    RequestViewModel    |     |
-|           | - Filtrado en Default  |         | - Validación Tipos 1-5 |     |
-|           | - Selección múltiple   |         | - Re-edición Historial |     |
-|           | - Respaldo .bin        |         | - Despacho WhatsApp    |     |
-|           +-----------+------------+         +-----------+------------+     |
-+-----------------------|----------------------------------|------------------+
-                        +-----------------+----------------+
-                                          |
-+-----------------------------------------v-----------------------------------+
-|                         CAPA DE DATOS Y PERSISTENCIA                        |
-|                                                                             |
-|                       +----------------------------------+                  |
-|                       |        ProductRepository         |                  |
-|                       +-----------------+----------------+                  |
-|                                         |                                   |
-|                       +-----------------v----------------+                  |
-|                       |       FastBinaryStore (V2)       |                  |
-|                       | - Estado en memoria (StateFlow)  |                  |
-|                       | - Índice Hash O(1) + Búsqueda Bin|                  |
-|                       | - Cola Conflated (Debounce 250ms)|                  |
-|                       | - Escritura atómica (.tmp+fsync) |                  |
-|                       +----------------------------------+                  |
-+-----------------------------------------------------------------------------+
-```
+- **Navegación Raíz y Tema Visual**:
+  - `MainActivity.kt`: Contenedor principal con encabezado editable del comercio y barra de navegación continua de 4 pestañas (`Catálogo`, `Solicitud`, `Distribuidor`, `Historial`), adaptable como `NavigationRail` lateral en pantallas anchas (`>= 600.dp`) o barra inferior plana en teléfonos.
+  - `FastComponents.kt`: Primitivas visuales planas sin bordes ni sombras (`FastButton`, `FastOutlinedButton`, `FastChip`, `FastTextField`, `FastNavIconItem`).
+  - `Color.kt`, `Theme.kt`, `Type.kt`: Paleta de colores sólidos, sistema de 5 colores para los tipos de solicitud (`Tipo1Verde`, `Tipo2Azul`, `Tipo3Naranja`, `Tipo4Teal`, `Tipo5Rojo`), contraste entero por desplazamiento de bits (`computeFastLumaScaled` y `getContrastingTextColor`) y configuración tipográfica general en Times New Roman (`R.font.tinos`).
+- **Módulo de Catálogo**:
+  - `CatalogScreen.kt`, `CatalogViewModel.kt`, `ProductDialog.kt`, `WhatsAppExportDialog.kt` y `BinaryImportModeDialog.kt`.
+- **Módulo de Solicitud e Historial**:
+  - `RequestScreen.kt`, `RequestViewModel.kt`, `RequestHistoryScreen.kt` y `Crop169Dialog.kt`.
+- **Módulo de Boleta de Distribuidor**:
+  - `DistributorScreen.kt` y `DistributorViewModel.kt`: Gestión de boletas por proveedor con ordenamiento explícito por número de fila (`ordenFila`), almacenamiento y filtrado de los 5 tipos de solicitud, edición rápida en línea, selección con doble toque para renderizado monocromo hacia WhatsApp, importación de plantillas desde el Catálogo y sincronización de precios hacia el Catálogo general.
+- **Modelos de Dominio y Persistencia Binaria**:
+  - `Product.kt`, `PriceRequest.kt`, `DistributorInvoice.kt` (`DistributorInvoice` y `DistributorItem`), `VarietyStockItem.kt` y `FastBinaryStore.kt`.
+- **Utilidades de Cálculo y Renderizado**:
+  - `MathUtils.kt`: Aritmética entera de márgenes `HALF_UP`, formateador entero de Guaraníes sobre buffer fijo sin `DecimalFormat`, tabla de búsqueda `O(1)` (`LATIN1_LUT`) con preservación de `ñ` y tokenizador único de búsquedas.
+  - `ImageUtils.kt`: Decodificación submuestreada de fotografías, caché volátil de `Typeface` Times New Roman (`R.font.tinos`) y dibujo en `android.graphics.Canvas` para infografías `16:9` y tablas monocromas de Catálogo, Boleta de Distribuidor e Historial.
 
----
+## Optimizaciones de Bajo Nivel Estilo WebAssembly
 
-## 2. Decisiones Clave de Rendimiento y Memoria
+1. **Buffers Lineales Reutilizables y Empaquetado de Bits (`FastBinaryStore`)**:
+   - La codificación y decodificación de cadenas UTF-8 en `writeFastString` y `readFastString` opera directamente sobre un buffer lineal reutilizable (`ThreadLocal<ByteArray>` con crecimiento geométrico), evitando crear miles de instancias `ByteArray` por lectura o escritura.
+   - Los esquemas binarios actuales (`STP3` para productos, `STR4` para solicitudes y `FBD3` para boletas de distribuidor) agrupan las banderas de presencia de todos los campos opcionales en una única máscara de bits (`flags`) al inicio de cada registro, reduciendo el tamaño en disco y las llamadas de E/S mientras conservan lectura retrocompatible con `STP2`/`STP1`, `STR3`/`STR2`/`STR1` y `FBD2`/`FBD1`.
 
-### 2.1. Eliminación de Capas Pesadas (Sin ORM ni Clientes de Red)
-A diferencia de proyectos convencionales que incorporan bases de datos SQLite/Room, procesadores de anotaciones KSP, clientes HTTP (`Retrofit`/`OkHttp`) o cargadores de imágenes asíncronos (`Coil`), este sistema prescinde deliberadamente de todas esas dependencias por tres motivos técnicos:
-1. **Volumen de datos acotado al dominio comercial**: Un catálogo minorista o mayorista local (de `1.000` a `50.000` artículos) cabe holgadamente en memoria como objetos inmutables indexados, permitiendo filtrado instantáneo sin cursores SQL ni mapeo de entidades.
-2. **Arranque en frío inmediato**: La lectura secuencial de un archivo binario estructurado (`DataInputStream` con buffer de `16 KB`) es significativamente más rápida y predecible que inicializar un motor SQLite con migraciones y reflexión.
-3. **Ahorro de RAM y tamaño de APK**: Al eliminar librerías no esenciales y guardar el historial sin imágenes, el consumo de memoria se mantiene estable incluso tras horas de operación continua.
+2. **Tabla de Búsqueda `O(1)` y Formateo Entero sin Asignaciones (`MathUtils`)**:
+   - `LATIN1_LUT` resuelve la conversión a minúsculas y eliminación de tildes (preservando la `ñ`) mediante indexación directa de un arreglo `CharArray(256)` en tiempo constante `O(1)`. Si la cadena de entrada ya está normalizada, devuelve la misma referencia `String` sin asignar memoria.
+   - `formatearGuaranies` divide el monto `Long` entre `10` en un bucle entero y escribe los dígitos de derecha a izquierda sobre un `CharArray(28)` preasignado en `ThreadLocal`, insertando puntos cada tres cifras sin usar `DecimalFormat`.
 
----
+3. **Búsqueda Pretokenizada y Claves de Ordenamiento Precalculadas (`sortKey`)**:
+   - `CatalogViewModel` y `DistributorViewModel` normalizan y separan los tokens de búsqueda una sola vez por cambio de consulta (`MathUtils.prepareQueryTokens`), evaluando cada producto o fila con `matchesTokens` sin ejecutar `split` ni `replace` dentro del bucle.
+   - `Product`, `DistributorItem` y `DistributorInvoice` precalculan `sortKey`, permitiendo que `DistributorItem.ROW_COMPARATOR` ordene filas en `O(N log N)` sin recalcular normalizaciones de texto.
+   - Las cadenas de presentación y listas de viñetas en `DistributorItem` y `PriceRequest` se evalúan bajo demanda o con `lazy(LazyThreadSafetyMode.NONE)`, evitando construir cadenas innecesarias al cargar o copiar colecciones en segundo plano.
 
-### 2.2. Primitivas Planas de Interfaz (`FastComponents.kt`)
-Los controles estándar de Material 3 (`OutlinedTextField`, `FilterChip`, `NavigationBarItem`) utilizan `SubcomposeLayout`, capas múltiples de `Surface`, sombras de elevación y animaciones de estado que penalizan el tiempo de composición cuando se renderizan decenas de elementos simultáneamente.
-
-El módulo `com.example.ui.components.FastComponents` sustituye esos controles por primitivas planas de una sola capa:
-
-| Componente Plano | Reemplaza a | Ventaja Arquitectónica |
-| :--- | :--- | :--- |
-| `FastTextField` | `OutlinedTextField` | Basado en `BasicTextField` + `Row` plano; sin `SubcomposeLayout` ni etiquetas flotantes animadas. |
-| `FastChip` | `FilterChip` | Un único `Row` con fondo sólido, borde de `1.dp` y contraste calculado por luminancia. |
-| `FastButton` / `FastOutlinedButton` | `Button` / `OutlinedButton` | Sin sombras de elevación ni capas intermedias de `Surface`. |
-| `FastCheckBox` | `Checkbox` | `Box` ligero de `28.dp` para selección fluida durante el desplazamiento del catálogo. |
-| `FastNavIconItem` | `NavigationBarItem` / `NavigationRailItem` | Botón de navegación de solo icono sin etiqueta de texto ni transiciones costosas. |
-
----
-
-### 2.3. Motor Binario `FastBinaryStore`
-Ubicado en `com.example.data.local.FastBinaryStore`, gestiona tres archivos independientes en el almacenamiento interno privado (`context.filesDir`):
-- `catalog_fast_v2.bin`: Catálogo de productos ordenado alfabéticamente por `sortKey`.
-- `requests_fast_v2.bin`: Historial cronológico de solicitudes (exclusivamente texto y números, sin rutas de imagen).
-- `store_config_v1.bin`: Nombre personalizado del local o sitio de trabajo.
-
-#### Garantías de Concurrencia y Durabilidad
-- **Lectura O(1) en memoria**: Expone `productsFlow`, `requestsFlow` y `workplaceNameFlow` como `StateFlow` respaldados por un mapa `@Volatile Map<String, Product>` para consultas directas por `id`.
-- **Escritura desacoplada con colapso de ráfagas**: Tres canales `Channel<Unit>(Channel.CONFLATED)` agrupan modificaciones rápidas en una ventana de `250 ms` antes de serializar a disco en `Dispatchers.IO`.
-- **Transacción atómica en sistema de archivos**:
-  1. Escribe el flujo completo en un archivo temporal (`*.bin.tmp`).
-  2. Ejecuta `FileOutputStream.fd.sync()` para asegurar el volcado físico a la memoria flash.
-  3. Reemplaza el archivo definitivo mediante `Files.move(..., ATOMIC_MOVE, REPLACE_EXISTING)`.
-
----
-
-## 3. Estructura de Paquetes del Código Fuente
-
-```text
-app/src/main/java/com/example/
-├── MainActivity.kt                  # Contenedor principal y navegación plana por iconos
-├── data/
-│   ├── local/
-│   │   └── FastBinaryStore.kt       # Persistencia binaria atómica e importación/exportación .bin
-│   ├── model/
-│   │   ├── Product.kt               # Entidad inmutable de producto e índice de búsqueda por tokens
-│   │   └── PriceRequest.kt          # Entidad de solicitud (sin imágenes) y VarietyStockItem
-│   └── repository/
-│       └── ProductRepository.kt     # Fachada única de acceso a datos para los ViewModels
-├── ui/
-│   ├── catalog/                     # Pantalla de catálogo, modal de producto y exportación
-│   ├── components/                  # Biblioteca interna FastComponents
-│   ├── request/                     # Formulario de solicitudes (Tipos 1-5), recorte 16:9 e historial
-│   └── theme/                       # Paleta semántica y contraste dinámico por luminancia
-└── util/
-    ├── ImageUtils.kt                # Generación bajo demanda de fichas e imágenes monocromas RGB_565
-    └── MathUtils.kt                 # Cálculo entero de márgenes, redondeo a 500 y normalización UTF-8
-```
+4. **Contraste por Bits y Caché de `Typeface` (`Color.kt` e `ImageUtils.kt`)**:
+   - `computeFastLumaScaled` extrae los canales `R`, `G` y `B` mediante desplazamientos de bits (`ushr 16`, `ushr 8`, `and 0xFF`) y calcula la luminancia entera `(R * 299 + G * 587 + B * 114)` sin conversiones de espacio de color en coma flotante.
+   - `ImageUtils` conserva en memoria la instancia de `Typeface` en negrita de `R.font.tinos`, evitando lecturas repetidas de recursos al generar múltiples imágenes para WhatsApp.

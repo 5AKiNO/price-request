@@ -1,103 +1,109 @@
-# Modelos de Datos y Reglas Matemáticas
+# Modelos de Datos y Esquema Binario
 
-Este documento detalla las estructuras de datos inmutables del dominio (`com.example.data.model`) y las fórmulas financieras (`com.example.util.MathUtils`) que gobiernan el cálculo de precios y márgenes.
+Este documento especifica las estructuras de datos del dominio definidas en `app/src/main/java/com/example/`, las fórmulas matemáticas de precios y la disposición de bytes con empaquetado de bits empleada por `FastBinaryStore`.
 
----
+## Modelos de Dominio (`package com.example`)
 
-## 1. Modelo `Product` (`Product.kt`)
+### `Product`
 
-Representa un artículo del catálogo comercial. Es una `data class` inmutable que precalcula sus cadenas de visualización e indexación al momento de instanciarse para no repetir formateos durante el desplazamiento (`LazyColumn`) ni durante las búsquedas.
+Representa un artículo registrado en el catálogo del comercio:
 
-### Propiedades Persistidas
-| Campo | Tipo | Descripción |
+| Campo | Tipo Kotlin | Descripción |
 | :--- | :--- | :--- |
-| `id` | `String` | Identificador único del producto (UUID o clave generada). |
-| `codigo` | `String` | Código de barras o código interno principal (vacío si es `"Sin Código"`). |
-| `codigoAlternativo` | `String` | Segundo código de referencia opcional. |
-| `descripcion` | `String` | Nombre comercial del artículo. |
-| `precioCosto` | `Long` | Costo unitario de compra en valores enteros (Guaraníes). |
-| `precioVenta` | `Long` | Precio final de venta al público en valores enteros. |
-| `porcentajePersonalizado` | `Int?` | Margen objetivo asignado (`20`, `25`, `30`, `35`, `50` o `null` si fue libre). |
-| `notaRedondeo` | `String` | Nota informativa cuando se aplicó redondeo comercial a múltiplo de `500`. |
-| `pendienteRegistro` | `Boolean` | `true` cuando el artículo está marcado como `"Falta Registrar"` en sistema central. |
-| `fechaActualizacion` | `Long` | Marca de tiempo en milisegundos (`System.currentTimeMillis()`). |
+| `id` | `String` | Identificador único del producto (UUID). |
+| `codigo` | `String?` | Código opcional del artículo (código interno o de barras). |
+| `codigoAlternativo` | `String?` | Código secundario opcional. |
+| `descripcion` | `String` | Nombre o descripción comercial del producto. |
+| `precioCosto` | `Long?` | Precio de costo unitario en Guaraníes (`Gs.`). |
+| `precioVenta` | `Long?` | Precio de venta al público en Guaraníes (`Gs.`). |
+| `porcentajePersonalizado` | `Int?` | Porcentaje comercial seleccionado (`20`, `25`, `30`, `35` o `50`). |
+| `porcentajeRealRedondeado` | `Int?` | Margen entero redondeado con `HALF_UP`. |
+| `estadoRegistro` | `String` | Estado del ítem (`COMPLETO`, `SIN_CODIGO`, `FALTA_REGISTRAR`). |
+| `notaRedondeo` | `String?` | Nota opcional de ajuste. |
+| `updatedAt` | `Long` | Marca de tiempo Unix en milisegundos. |
 
-### Propiedades Precalculadas en Memoria (No consumen CPU al dibujar)
-- `porcentajeRealRedondeado: Int`: Margen real obtenido entre `precioCosto` y `precioVenta`.
-- `costoFormateado: String` y `ventaFormateada: String`: Textos con separador de miles (`"12.500"`).
-- `codigosDisplay: String`: Etiqueta lista para mostrar en fila (`"100648"` o `"SIN CÓDIGO"`).
-- `sortKey: String`: Clave normalizada para ordenamiento alfabético con soporte de `ñ`.
-- `searchIndex: String`: Índice multicriterio en minúsculas para coincidencias por tokens en `matchesQuery`.
+Propiedades optimizadas en `Product`:
 
----
+- `sortKey: String`: Clave normalizada con preservación de `ñ` mediante `LATIN1_LUT`.
+- `costoFormateado`, `ventaFormateada`, `ventaCortaFormateada`: Propiedades diferidas (`lazy(LazyThreadSafetyMode.NONE)`) formateadas con aritmética entera.
+- `matchesTokens(tokens: Array<String>): Boolean`: Evaluación lineal sobre `searchIndex` sin asignaciones por ítem.
 
-## 2. Modelo `PriceRequest` (`PriceRequest.kt`)
+### `VarietyStockItem`
 
-Representa un registro en el **Historial de Solicitudes**. Por diseño de ahorro de memoria y almacenamiento, **no incluye ningún campo de imagen ni URI de archivo**.
+Representa una línea de producto o variedad que comparte el mismo costo dentro de una solicitud o fila de distribuidor (`nombre`, `stock`, `recarga`). Su método `formatBulletLine(includeStock: Boolean)` construye la línea de presentación omitiendo paréntesis vacíos cuando no se declararon valores de stock o recarga.
 
-| Campo | Tipo | Descripción |
+### `DistributorInvoice` y `DistributorItem`
+
+`DistributorInvoice` agrupa la boleta activa de un proveedor específico (`id`, `nombre`, `items: List<DistributorItem>`, `updatedAt`), exponiendo `sortKey` precalculado, `sortedItems` ordenados mediante `DistributorItem.ROW_COMPARATOR` y `nextRowOrder`.
+
+Cada `DistributorItem` almacena una fila de la boleta con soporte completo para cualquiera de los **5 tipos de solicitud**:
+
+| Campo | Tipo Kotlin | Descripción |
 | :--- | :--- | :--- |
-| `id` | `String` | Identificador único de la solicitud (conservado al re-editar desde el Historial). |
-| `productId` | `String` | ID del producto vinculado (o cadena vacía si se redactó manualmente). |
-| `tipoSolicitud` | `Int` | Identificador del tipo de solicitud (`1` a `5`). |
-| `porcentajeDeseado` | `Int` | Porcentaje de referencia (`20`, `25`, `30`, `35`, `50`), usado en Tipos 4 y 5. |
-| `codigo` | `String` | Código del artículo declarado en la solicitud. |
-| `descripcion` | `String` | Nombre del producto principal. |
-| `variedades` | `String` | Lista de variedades formateadas separadas por salto de línea (`\n`). |
-| `costoAnterior` | `Long` | Costo previo (usado en Tipos 2 y 3). |
-| `costoNuevo` | `Long` | Costo actual o nuevo costo de reposición. |
-| `ventaAnterior` | `Long` | Precio de venta anterior (usado en Tipos 2, 3, 4 y 5). |
-| `ventaNueva` | `Long` | Precio de venta nuevo propuesto. |
-| `stockActual` | `Int?` | Stock físico del ítem principal (opcional en Tipos 2 a 5). |
-| `cantidadRecarga` | `Int?` | Cantidad de recarga del ítem principal (opcional en Tipos 1 a 5). |
-| `mensajeGenerado` | `String` | Cuerpo completo en texto plano listo para reenviar o exportar. |
-| `fechaCreacion` | `Long` | Marca temporal de creación o última edición. |
+| `id` | `String` | Identificador único de la fila dentro de la boleta. |
+| `ordenFila` | `Int` | Número de fila asignado en la boleta (`1, 2, 3...`). |
+| `tipoId` | `Int` | Tipo de solicitud almacenado en la fila (`1` a `5`). |
+| `porcentajeDeseado` | `Int?` | Margen objetivo seleccionado (`20`, `25`, `30`, `35` o `50`). |
+| `titulo` | `String` | Título descriptivo del motivo de la solicitud. |
+| `codigo` | `String?` | Código opcional del producto. |
+| `descripcion` | `String` | Nombre principal del artículo en la fila. |
+| `precioCostoAnterior` | `Long?` | Costo previo en `Gs.` (utilizado en los tipos `2` y `3`). |
+| `precioCostoNuevo` | `Long` | Costo actual o nuevo en `Gs.`. |
+| `precioVentaAnterior` | `Long?` | Precio de venta previo en `Gs.` (utilizado en los tipos `2`, `3`, `4` y `5`). |
+| `porcentajeAnteriorRedondeado` | `Int?` | Porcentaje de margen previo redondeado. |
+| `precioVentaResultante` | `Long` | Precio de venta resultante en `Gs.`. |
+| `porcentajeMargen` | `Int` | Porcentaje de margen resultante redondeado. |
+| `stockAnterior` | `String?` | Stock actual declarado para el producto principal. |
+| `recargaStock` | `String?` | Cantidad de recarga o ingreso declarada para el producto principal. |
+| `variedadesMismoCosto` | `String?` | Líneas de variedades adicionales que comparten el mismo costo en esa fila. |
+| `ultimoTipoSolicitudId` | `Int?` | Identificador del último tipo de solicitud aplicado a la fila. |
+| `updatedAt` | `Long` | Marca de tiempo Unix en milisegundos. |
 
----
+### `PriceRequest`
 
-## 3. Modelo `VarietyStockItem` (`PriceRequest.kt`)
+Representa una solicitud de ajuste de precio almacenada en el historial con sus datos completos de tipo (`1` a `5`), costos anteriores/nuevos, ventas anteriores/nuevas, stock, recarga, variedades y vínculo opcional con distribuidor (`distributorId`, `ordenFilaBoleta`).
 
-Modela una variedad individual dentro de una solicitud (ej. sabores, talles o colores) y soporta reconstrucción bidireccional (`formatLine` <-> `parseFromFormattedLine`) para permitir la **re-edición completa desde el Historial**:
+## Especificación del Esquema Binario con Máscaras de Bits (`FastBinaryStore`)
 
-```text
-VarietyStockItem(nombre = "Naranja", stock = "6", recarga = "12")
-   |
-   +--> formatLine(includeStock = true)
-   |    Resultado: "Naranja (Stock: 6 | Recarga: 12)"
-   |
-   +--> VarietyStockItem.parseFromFormattedLine("· Naranja (Stock: 6 | Recarga: 12)")
-        Reconstruye: VarietyStockItem(nombre = "Naranja", stock = "6", recarga = "12")
-```
+Los archivos binarios se escriben en orden **Big-Endian** utilizando un buffer lineal reutilizable (`ThreadLocal<ByteArray>`) para codificar y decodificar cadenas UTF-8 sin asignaciones intermedias. Cada entidad incluye una máscara de bits (`flags`) que indica qué campos opcionales están presentes en el flujo:
 
----
+### Esquema de Catálogo (`store_products_v1.bin` - `STP3`)
 
-## 4. Enumeración `RequestType` (`PriceRequest.kt`)
+- **Encabezado Mágico**: `0x53545033` (`"STP3"`, compatible en lectura con `"STP2"` y `"STP1"`).
+- **Máscara de Bits por Producto (`1 byte unsigned`)**:
+  - `bit 0`: `codigo` presente
+  - `bit 1`: `codigoAlternativo` presente
+  - `bit 2`: `precioCosto` presente
+  - `bit 3`: `precioVenta` presente
+  - `bit 4`: `porcentajePersonalizado` presente
+  - `bit 5`: `porcentajeRealRedondeado` presente
+  - `bit 6`: `notaRedondeo` presente
 
-Define los 5 tipos de solicitud admitidos:
+### Esquema de Boletas de Distribuidor (`store_distributors_v1.bin` - `FBD3`)
 
-1. `FALTA_REGISTRAR (1)`: `"Este Producto Falta Registrar"`
-2. `COSTO_SUBIO (2)`: `"El costo de este producto subió"`
-3. `COSTO_BAJO (3)`: `"El costo de este producto bajó"`
-4. `PRECIO_EXCEDE_PORCENTAJE (4)`: `"El precio de venta excede el {porcentaje}%"`
-5. `PRECIO_INFERIOR_PORCENTAJE (5)`: `"El precio de venta es inferior al {porcentaje}%"`
+- **Encabezado Mágico**: `0x46424433` (`"FBD3"`, compatible en lectura con `"FBD2"` y `"FBD1"`).
+- **Máscara de Bits por Fila `DistributorItem` (`1 byte unsigned`)**:
+  - `bit 0`: `codigo` presente
+  - `bit 1`: `porcentajeDeseado` presente
+  - `bit 2`: `precioCostoAnterior` presente
+  - `bit 3`: `precioVentaAnterior` presente
+  - `bit 4`: `porcentajeAnteriorRedondeado` presente
+  - `bit 5`: `stockAnterior` presente
+  - `bit 6`: `recargaStock` presente
+  - `bit 7`: `variedadesMismoCosto` presente
 
----
+### Esquema de Historial (`store_requests_v1.bin` - `STR4`)
 
-## 5. Fórmulas Financieras (`MathUtils.kt`)
-
-Todas las operaciones monetarias utilizan enteros de 64 bits (`Long`) para evitar errores de redondeo IEEE 754:
-
-### 5.1. Escala de Porcentajes Seleccionables
-```kotlin
-val SELECTABLE_PERCENTAGES = listOf(20, 25, 30, 35, 50)
-```
-
-### 5.2. Precio de Venta con Redondeo Comercial a Múltiplos de 500
-Dado un `costo > 0` y un `porcentaje` seleccionado:
-1. Se calcula el valor exacto:
-   $$\text{VentaExacta} = \text{round}\left(\text{Costo} \times \left(1 + \frac{\text{Porcentaje}}{100}\right)\right)$$
-2. Si $\text{VentaExacta} \pmod{500} \neq 0$, se redondea hacia arriba al siguiente múltiplo de `500`:
-   $$\text{VentaRedondeada} = \left(\lfloor \text{VentaExacta} / 500 \rfloor + 1\right) \times 500$$
-
-### 5.3. Porcentaje de Margen Real Redondeado
-$$\text{MargenReal} = \text{round}\left(\frac{\text{PrecioVenta} - \text{PrecioCosto}}{\text{PrecioCosto}} \times 100\right)$$
+- **Encabezado Mágico**: `0x53545234` (`"STR4"`, compatible en lectura con `"STR3"`, `"STR2"` y `"STR1"`).
+- **Máscara de Bits por Solicitud `PriceRequest` (`2 bytes unsigned short`)**:
+  - `bit 0`: `distributorId` presente
+  - `bit 1`: `ordenFilaBoleta` presente
+  - `bit 2`: `productoYaRegistrado` verdadero
+  - `bit 3`: `codigoEfectivo` presente
+  - `bit 4`: `porcentajeDeseado` presente
+  - `bit 5`: `precioCostoAnterior` presente
+  - `bit 6`: `precioVentaAnterior` presente
+  - `bit 7`: `porcentajeAnteriorRedondeado` presente
+  - `bit 8`: `stockAnterior` presente
+  - `bit 9`: `recargaStock` presente
+  - `bit 10`: `variedadesMismoCosto` presente

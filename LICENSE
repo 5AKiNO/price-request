@@ -1,55 +1,29 @@
-LICENCIA DE CÓDIGO DISPONIBLE PARA USO ESTRICTAMENTE NO COMERCIAL
-Versión 1.0 — Todos los derechos comerciales reservados
+Licencia de Código Disponible para Uso No Comercial
 
-Copyright (c) 2024-2026 Autor y Titular del Proyecto "Sistema de Precios".
-Todos los derechos no concedidos expresamente en esta licencia quedan reservados.
+Derechos de Autor (c) 2026 Autor del Proyecto
+Todos los derechos reservados bajo los términos de esta licencia.
 
-1. DEFINICIONES
-- "El Software" hace referencia al código fuente, archivos de configuración,
-  especificaciones de formatos binarios (.bin), diseño de interfaz, documentación
-  y binarios ejecutables (APK/AAB) contenidos o derivados de este repositorio.
-- "Uso Comercial" significa cualquier uso, reproducción, modificación, distribución
-  o ejecución de El Software que tenga por objeto o resultado la obtención directa
-  o indirecta de ingresos económicos, compensación monetaria, ventaja comercial
-  empresarial o contraprestación de cualquier naturaleza.
+Definiciones
 
-2. CONCESIÓN DE LICENCIA NO COMERCIAL
-Sujeto al cumplimiento estricto de los términos de esta licencia, el Titular otorga
-una licencia gratuita, no exclusiva, revocable e intransferible para:
-a) Consultar, estudiar y auditar el código fuente con fines educativos, académicos
-   o de investigación personal.
-b) Compilar y ejecutar El Software para uso personal y privado sin fines de lucro.
-c) Proponer mejoras (Pull Requests) de vuelta a este repositorio oficial.
+1. "El Software" se refiere al código fuente, archivos de configuración, recursos gráficos, esquemas binarios, scripts de construcción y documentación incluidos en este repositorio.
+2. "Uso Comercial" significa cualquier uso, reproducción, distribución, modificación, integración o despliegue del Software (en su forma original o modificada) cuyo propósito directo o indirecto sea obtener una ventaja comercial, compensación monetaria, ingresos por venta, licenciamiento, suscripción, publicidad, consultoría pagada o prestación de servicios a terceros a cambio de remuneración.
+3. "Uso No Comercial" significa el uso personal, académico, educativo, de evaluación técnica o en comercios propios del usuario final sin cobro a terceros por el acceso, distribución o soporte del Software.
 
-3. RESTRICCIONES EXPRESAS (PROHIBICIÓN DE LUCRO POR TERCEROS)
-Queda ESTRICTAMENTE PROHIBIDO a cualquier usuario, organización o tercero:
-a) Vender, revender, alquilar, arrendar, sublicenciar o cobrar por El Software,
-   ya sea en su forma original, compilada (APK/AAB) o modificada.
-b) Ofrecer El Software como parte de un servicio alojado, plataforma comercial
-   (SaaS), consultoría remunerada, instalación cobrada a comercios o soporte
-   técnico facturado a terceros.
-c) Publicar El Software o trabajos derivados en tiendas de aplicaciones (como
-   Google Play Store, AppGallery, Amazon Appstore u otras) bajo cuentas de
-   terceros, con o sin publicidad, compras integradas o suscripciones.
-d) Integrar total o parcialmente el código fuente, el motor binario
-   (FastBinaryStore) o los componentes gráficos (FastComponents) dentro de
-   productos privativos o comerciales de terceros.
+Concesión de Permisos No Comerciales
 
-4. CONSERVACIÓN DE AVISOS Y ATRIBUCIÓN
-Toda copia autorizada para uso no comercial deberá conservar íntegramente este
-archivo de licencia y los avisos de autoría originales en todos los archivos
-de código y documentación.
+Por la presente se concede permiso, de forma gratuita, a cualquier persona que obtenga una copia del Software, para estudiar, compilar, ejecutar, modificar y distribuir el Software únicamente con fines de Uso No Comercial, sujeto a las siguientes condiciones:
 
-5. TERMINACIÓN AUTOMÁTICA
-El incumplimiento de cualquiera de las cláusulas de esta licencia, en especial
-la prohibición de Uso Comercial descrita en la Sección 3, extinguirá de forma
-inmediata y automática todos los permisos concedidos sin necesidad de aviso
-previo, habilitando al Titular a ejercer las acciones legales y reclamos de
-propiedad intelectual que correspondan.
+- El aviso de derechos de autor anterior y el texto íntegro de esta licencia deben incluirse en todas las copias o partes sustanciales del Software.
+- Cualquier modificación o trabajo derivado distribuido públicamente debe mantenerse bajo esta misma licencia y conservar la restricción de Uso No Comercial.
 
-6. EXCLUSIÓN DE GARANTÍAS Y LIMITACIÓN DE RESPONSABILIDAD
-EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O
-IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A GARANTÍAS DE COMERCIABILIDAD, IDONEIDAD
-PARA UN PROPÓSITO PARTICULAR E INEXISTENCIA DE INFRACCIÓN. EN NINGÚN CASO EL
-AUTOR O TITULAR SERÁ RESPONSABLE DE NINGÚN RECLAMO, DAÑO U OTRA RESPONSABILIDAD
-DERIVADA DEL USO O IMPOSIBILIDAD DE USO DE EL SOFTWARE.
+Restricciones Estrictas de Uso Comercial
+
+Queda prohibido a cualquier persona física o jurídica, sin una licencia comercial escrita previa otorgada por el titular de los derechos de autor:
+
+1. Vender, alquilar, arrendar, sublicenciar o comercializar el Software, ya sea como código fuente, paquete compilado (APK/AAB) o parte de otro producto comercial.
+2. Publicar el Software o versiones derivadas en tiendas de aplicaciones (como Google Play Store o similares) bajo esquemas de pago, compras integradas, suscripciones o monetización publicitaria.
+3. Ofrecer el Software como servicio alojado, plataforma comercial o herramienta facturada a clientes o comercios terceros.
+
+Ausencia de Garantías y Limitación de Responsabilidad
+
+El Software se proporciona tal cual, sin garantía de ningún tipo, expresa o implícita, incluyendo pero no limitado a garantías de comerciabilidad, idoneidad para un propósito particular y no infracción. En ningún caso los autores o titulares de los derechos de autor serán responsables de ninguna reclamación, daños u otra responsabilidad, ya sea en una acción de contrato, agravio o de otro modo, que surja de, fuera de o en conexión con el Software o el uso u otros tratos en el Software.
