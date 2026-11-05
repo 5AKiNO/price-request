@@ -91,7 +91,3 @@ Almacena localmente las solicitudes emitidas con sus datos de costo, venta, fech
 - [Guía de Contribución](CONTRIBUTING.md): Reglas de arquitectura, estilo y pruebas.
 - [Registro de Cambios](CHANGELOG.md): Historial cronológico de versiones bajo Versionado Semántico.
 - [Política de Seguridad](SECURITY.md): Integridad de archivos `.bin` y reporte de vulnerabilidades.
-
-## Licencia
-
-Este proyecto se distribuye bajo una **Licencia de Código Disponible para Uso No Comercial**. Queda prohibido a terceros utilizar este repositorio, su código fuente o sus binarios compilados con fines comerciales o de lucro. Consulta el archivo [LICENSE](LICENSE) para leer los términos completos.
