@@ -1,6 +1,6 @@
 # Guía de Contribución
 
-Gracias por tu interés en colaborar con este proyecto. Este documento describe las pautas técnicas, convenciones de código y pasos necesarios para proponer mejoras o correcciones.
+Gracias por tu interés en colaborar con **Sistema de Precios**. Este documento describe las pautas técnicas, convenciones de código y pasos necesarios para proponer mejoras o correcciones.
 
 ## Configuración del Entorno de Desarrollo
 
@@ -17,11 +17,11 @@ Gracias por tu interés en colaborar con este proyecto. Este documento describe 
 Para mantener el bajo uso de memoria RAM, la claridad estructural y la fluidez en dispositivos de gama de entrada, toda contribución debe respetar los siguientes principios:
 
 - **Estructura de paquete plana en `com.example`**: Todos los archivos Kotlin del módulo `app` se ubican directamente en `app/src/main/java/com/example/` bajo `package com.example`. No introduzcas subcarpetas anidadas artificiales.
-- **Sin librerías pesadas de persistencia**: Toda persistencia local se realiza en `FastBinaryStore` mediante `DataOutputStream` y `DataInputStream`. No agregues Room, SQLite wrappers ni ORMs externos.
-- **Componentes de interfaz planos sobre grilla de 8.dp**: Utiliza los componentes de `FastComponents.kt` (`FastButton`, `FastOutlinedButton`, `FastChip`, `FastTextField`, `FastNavIconItem`) con superficies planas de color sólido, sin bordes ni líneas divisorias, y espaciados múltiplos de `8.dp` (`8.dp`, `16.dp`, `24.dp`, `32.dp`, `40.dp`, `48.dp`).
-- **Tipografía general Times New Roman**: Mantén el uso de `TimesNewRomanFontFamily` (`R.font.tinos`) tanto en `Type.kt` como en el renderizado de bitmaps en `ImageUtils.kt`.
-- **Aritmética monetaria entera**: Los precios en Guaraníes deben manejarse como `Long` y calcularse a través de `MathUtils`. No utilices `Float` o `Double` para almacenar importes monetarios.
-- **Sin imágenes persistentes en el Historial ni en las Boletas de Distribuidor**: Las capturas fotográficas se procesan únicamente en memoria y caché temporal para generar la ficha `16:9` al momento de compartir; nunca deben guardarse en `store_requests_v1.bin` ni en `store_distributors_v1.bin`.
+- **Sin librerías pesadas de persistencia ni capas ORM**: Toda persistencia local se realiza en `FastBinaryStore` mediante buffers lineales reutilizables, colas `Channel.CONFLATED` y escritura atómica con `fsync`. No agregues Room, SQLite wrappers, Retrofit, Moshi ni Coil.
+- **Primitivas de interfaz planas (`FastComponents`) sobre grilla de `8.dp`**: Utiliza `FastTextField`, `FastChip`, `FastButton`, `FastOutlinedButton`, `FastCheckBox` y `FastNavIconItem` para evitar el costo de `SubcomposeLayout`, bordes superpuestos y animaciones de elevación en listas densas.
+- **Tipografía general Times New Roman**: Mantén el uso de `TimesNewRomanFontFamily` (`R.font.tinos`) tanto en `Type.kt` como en el renderizado de bitmaps (`RGB_565`) en `ImageUtils.kt`.
+- **Aritmética monetaria entera**: Los precios en Guaraníes deben manejarse como `Long` y calcularse a través de `MathUtils` (con redondeo `HALF_UP` y redondeo comercial a múltiplos de `500 Gs.`). No utilices `Float`, `Double` ni `DecimalFormat` para procesar o formatear importes monetarios.
+- **Sin imágenes persistentes en Historial ni en Boletas de Distribuidor**: Las capturas fotográficas se procesan únicamente en memoria y caché temporal (`cacheDir/shared_images`) para su despacho inmediato por WhatsApp; nunca deben guardarse en `store_requests_v1.bin` ni en `store_distributors_v1.bin`.
 - **Etiquetas de prueba (`testTag`)**: Todo botón, campo de entrada o selector interactivo nuevo debe incluir su `Modifier.testTag("nombre_en_snake_case")` correspondiente.
 
 ## Flujo de Trabajo para Pull Requests
@@ -30,12 +30,12 @@ Para mantener el bajo uso de memoria RAM, la claridad estructural y la fluidez e
    - `feat/descripcion-corta` para nuevas funcionalidades.
    - `fix/descripcion-corta` para corrección de errores.
    - `docs/descripcion-corta` para mejoras en la documentación.
-2. Asegúrate de que el código compile sin advertencias críticas y pase los chequeos locales:
+2. Asegúrate de que el código compile sin advertencias críticas y pase las pruebas unitarias:
    ```bash
    gradle :app:testDebugUnitTest assembleDebug
    ```
-3. Si modificas el formato binario de `FastBinaryStore`, incrementa el encabezado mágico (`FBC1`, `FBD2`, `STR3`) y conserva el método de lectura de versiones previas para no romper archivos `.bin` existentes.
-4. Abre el Pull Request detallando el problema resuelto, los archivos modificados y cómo fue verificado.
+3. Si modificas el formato binario de `FastBinaryStore`, incrementa la cabecera mágica correspondiente (`STP3`, `STR4`, `FBD3`, `STC2`) y conserva el bloque de lectura de versiones previas para no romper respaldos `.bin` existentes.
+4. Registra los cambios relevantes en `CHANGELOG.md` respetando el formato de Keep a Changelog y Versionado Semántico.
 
 ## Acuerdo de Licencia
 
